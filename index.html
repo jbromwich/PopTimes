@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#e9eef5">
+<title>Times tables quiz</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Fredoka:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --page:#e9eef5; --panel:#f2f6fb; --ink:#1e2530; --muted:#5f6b7a;
+  --line:#cdd8e6; --line-strong:#a8b7c9; --accent:#2f6ea8;
+  --ok-bg:#dcefdf; --ok-ink:#22622f; --bad-bg:#f6dcd9; --bad-ink:#95322a; --radius:8px;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --page:#15191f; --panel:#1d232c; --ink:#e8edf4; --muted:#94a1b2;
+    --line:#2f3843; --line-strong:#4a5765; --accent:#8ab6e0;
+    --ok-bg:#1f3d27; --ok-ink:#9fdcae; --bad-bg:#43241f; --bad-ink:#f0a79c;
+  }
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--page); color:var(--ink);
+  font-family:'Atkinson Hyperlegible','Lexend',system-ui,-apple-system,sans-serif;
+  font-size:16px; -webkit-text-size-adjust:100%;
+  display:flex; justify-content:center;
+  padding:16px 12px calc(16px + env(safe-area-inset-bottom));
+}
+#app{width:100%;max-width:520px;background:var(--panel);border:1px solid var(--line-strong);border-radius:12px;padding:20px 22px 24px}
+#head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;font-size:14px;color:var(--muted);min-height:18px}
+#track{height:3px;border-radius:2px;background:var(--line);overflow:hidden;margin-bottom:26px}
+#bar{height:100%;width:0;background:var(--accent);transition:width .3s}
+#qrow{display:grid;grid-template-columns:1fr;align-items:baseline;font-size:clamp(30px,9vw,40px);margin-bottom:22px;min-height:52px}
+#q{text-align:center}
+#qa{text-align:left;padding-left:14px;color:var(--ok-ink);opacity:0;transition:opacity .35s}
+#opts{display:grid;grid-template-columns:1fr;gap:12px;transition:opacity .4s}
+#opts button{font-family:inherit;font-size:20px;padding:16px 0;color:var(--ink);background:transparent;border:1px solid var(--line-strong);border-radius:var(--radius);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:opacity .45s,background-color .2s}
+#fb{text-align:center;margin-top:20px;font-size:15px;min-height:24px;color:var(--muted)}
+#fb .row{font-size:22px;padding:10px 4px;border-bottom:1px solid var(--line);color:var(--ink)}
+#fb button{font-family:inherit;font-size:26px;padding:20px 44px;color:var(--ink);background:transparent;border:1px solid var(--line-strong);border-radius:var(--radius);cursor:pointer}
+#right{display:flex;align-items:center;gap:12px}
+#quit{display:none;font-family:inherit;font-size:20px;line-height:1;background:none;border:none;color:var(--muted);cursor:pointer;padding:0 2px}
+.brand{font-family:'Fredoka','Atkinson Hyperlegible',sans-serif;font-weight:600;font-size:clamp(36px,11vw,50px);letter-spacing:.5px;color:var(--ink)}
+.ver{font-family:'Atkinson Hyperlegible',sans-serif;font-size:14px;color:var(--muted);margin-left:8px;vertical-align:middle}
+.subtitle{font-family:'Atkinson Hyperlegible',sans-serif;font-size:17px;color:var(--muted);margin-top:4px;line-height:1.4}
+#foot{margin-top:44px;text-align:right;font-size:12px;color:var(--muted)}
+#foot a{color:var(--muted)}
+#fb button.link{border:none;background:none;color:var(--muted);font-size:15px;padding:8px;text-decoration:underline;padding:8px}
+@media (prefers-reduced-motion: reduce){*{transition:none !important}}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="head"><span id="prog"></span><span id="right"><span id="score"></span><button id="quit" title="Quit to title" aria-label="Quit to title">&times;</button></span></div>
+  <div id="track"><div id="bar"></div></div>
+  <div id="qrow"><span id="q">&nbsp;</span><span id="qa"></span></div>
+  <div id="opts"></div>
+  <div id="fb"></div>
+</div>
+<script>
+var F=[3,4,5,6,7,8,9,12],TOTAL=20,KEY='times-tables-stats',GRACE=2500;
+var q=document.getElementById('q'),qa=document.getElementById('qa'),opts=document.getElementById('opts'),
+    fb=document.getElementById('fb'),prog=document.getElementById('prog'),sc=document.getElementById('score'),
+    bar=document.getElementById('bar'),qrow=document.getElementById('qrow'),track=document.getElementById('track'),
+    quit=document.getElementById('quit');
+quit.addEventListener('click',function(){welcome();});
+var a,b,ans,score=0,n=0,lock=false,t0=0,stats={},recent=[],log=[],tick=0;
+var PAIRS=[];
+for(var i=0;i<F.length;i++)for(var j=i+1;j<F.length;j++)PAIRS.push([F[i],F[j]]);
+PAIRS.push([10,11],[11,11],[11,12],[10,12],[12,12]);
+
+function key(x,y){return Math.min(x,y)+'x'+Math.max(x,y)}
+function rnd(x){return Math.floor(Math.random()*x)}
+function load(){try{var r=localStorage.getItem(KEY);if(r)stats=JSON.parse(r);}catch(e){stats={}}}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(stats));}catch(e){}}
+function hasHistory(){for(var k in stats){return true;}return false;}
+function weight(p){
+  var s=stats[key(p[0],p[1])];
+  if(!s||!s.n)return 4;
+  return Math.max(0.5,Math.min(20,(s.t/s.n/1000)*(1+2*(s.w/s.n))));
+}
+function avgMs(){var t=0,c=0;for(var k in stats){t+=stats[k].t;c+=stats[k].n;}return c?t/c:7000;}
+function stepMs(){return Math.max(900,Math.min(3200,avgMs()*0.4));}
+function pickPair(){
+  var pool=PAIRS.filter(function(p){return recent.indexOf(key(p[0],p[1]))===-1;});
+  var src=pool.length?pool:PAIRS;
+  var w=src.map(weight),sum=w.reduce(function(x,y){return x+y;},0),r=Math.random()*sum;
+  for(var i=0;i<src.length;i++){r-=w[i];if(r<=0)return src[i];}
+  return src[0];
+}
+function alive(){return [].slice.call(opts.children).filter(function(c){return c.style.opacity!=='0';});}
+function drop(){
+  if(lock)return;
+  var wrong=alive().filter(function(c){return +c.textContent!==ans;});
+  if(wrong.length<=1){tick=setTimeout(timeup,stepMs());return;}
+  var victim=wrong[rnd(wrong.length)];
+  victim.style.opacity='0';victim.style.pointerEvents='none';
+  tick=setTimeout(wrong.length-1<=1?timeup:drop,stepMs());
+}
+function timeup(){if(!lock)pick(null,null,true);}
+function next(){
+  if(n>=TOTAL)return finish();
+  lock=false;fb.textContent='';n++;quit.style.display='block';
+  qa.textContent='';qa.style.opacity='0';
+  opts.style.opacity='1';opts.style.pointerEvents='auto';
+  prog.textContent='Question '+n+' of '+TOTAL;
+  bar.style.width=Math.round((n-1)/TOTAL*100)+'%';
+  var p=pickPair(),k=key(p[0],p[1]),s=stats[k];
+  var flip=s&&s.o===0?1:(s?0:rnd(2));
+  if(flip){a=p[1];b=p[0];}else{a=p[0];b=p[1];}
+  ans=a*b;q.innerHTML='';q.textContent=a+' \u00d7 '+b;
+  recent.push(k);if(recent.length>3)recent.shift();
+  var seen={},vals=[ans],g=0;seen[ans]=1;
+  while(vals.length<6&&g++<300){
+    var d=(1+rnd(9))*(Math.random()<0.5?-1:1),v=ans+d;
+    if(v>0&&!seen[v]){seen[v]=1;vals.push(v);}
+  }
+  for(var z=vals.length-1;z>0;z--){var r2=rnd(z+1),tmp=vals[z];vals[z]=vals[r2];vals[r2]=tmp;}
+  opts.style.gridTemplateColumns='repeat(3,minmax(0,1fr))';
+  opts.innerHTML='';
+  vals.forEach(function(v){
+    var btn=document.createElement('button');
+    btn.textContent=v;
+    btn.addEventListener('mousedown',function(e){e.preventDefault();});
+    btn.addEventListener('click',function(){pick(v,btn,false);});
+    opts.appendChild(btn);
+  });
+  clearTimeout(tick);
+  tick=setTimeout(drop,GRACE+stepMs());
+  t0=Date.now();
+}
+function pick(v,btn,timedOut){
+  if(lock)return;lock=true;clearTimeout(tick);
+  var el=Date.now()-t0,k=key(a,b),ok=!timedOut&&v===ans,maxT=GRACE+5*stepMs();
+  var s=stats[k]||(stats[k]={t:0,n:0,w:0,o:0});
+  s.t+=ok?Math.min(el,maxT):maxT;s.n++;if(!ok)s.w++;s.o=(a<b)?0:1;
+  if(ok){
+    score++;
+    btn.style.background='var(--ok-bg)';btn.style.color='var(--ok-ink)';
+    qa.textContent='= '+ans;qa.style.opacity='1';
+  } else {
+    log.push({q:a+' \u00d7 '+b,ans:ans});
+    if(btn){btn.style.background='var(--bad-bg)';btn.style.color='var(--bad-ink)';}
+    setTimeout(function(){
+      opts.style.opacity='0';opts.style.pointerEvents='none';
+      qa.textContent='= '+ans;qa.style.opacity='1';
+    },timedOut?0:450);
+  }
+  sc.textContent='Score '+score;
+  bar.style.width=Math.round(n/TOTAL*100)+'%';
+  save();
+  setTimeout(next,ok?1400:2900);
+}
+function bigBtn(label,fn){
+  var btn=document.createElement('button');
+  btn.textContent=label;btn.addEventListener('click',fn);return btn;
+}
+function reset(){
+  track.style.display='';
+  score=0;n=0;recent=[];log=[];sc.textContent='Score 0';
+  fb.innerHTML='';fb.style.textAlign='center';
+  qrow.style.gridTemplateColumns='1fr 1fr';q.style.textAlign='right';
+  next();
+}
+function welcome(){
+  clearTimeout(tick);lock=true;
+  prog.textContent='';sc.textContent='';bar.style.width='0';
+  track.style.display='none';quit.style.display='none';
+  qrow.style.gridTemplateColumns='1fr';q.style.textAlign='center';
+  q.innerHTML='<span class="brand">PopTimes</span><span class="ver">1.0</span><div class="subtitle">times tables quiz</div>';
+  qa.textContent='';qa.style.opacity='0';
+  opts.innerHTML='';opts.style.opacity='1';
+  fb.innerHTML='';fb.style.textAlign='center';
+  if(hasHistory()){
+    fb.appendChild(bigBtn('Continue Quiz',reset));
+    var wrap=document.createElement('div');
+    wrap.style.cssText='margin-top:14px;';
+    var link=document.createElement('button');
+    link.className='link';link.textContent='Start a fresh session';
+    link.addEventListener('click',wipe);
+    wrap.appendChild(link);fb.appendChild(wrap);
+  } else {
+    fb.appendChild(bigBtn('Start',reset));
+  }
+  var t=document.createElement('div');
+  t.style.cssText='font-size:16px;color:var(--muted);line-height:1.6;margin-top:22px;';
+  t.innerHTML='Tap the correct answer<br>before the time runs out.';
+  fb.appendChild(t);
+  var foot=document.createElement('div');
+  foot.id='foot';
+  foot.innerHTML='by <a href="https://julianbromwich.com" target="_blank" rel="noopener">Julian Bromwich</a>';
+  fb.appendChild(foot);
+}
+function wipe(){
+  try{localStorage.removeItem(KEY);}catch(e){}
+  stats={};welcome();
+}
+function finish(){
+  var pct=Math.round(score/TOTAL*100);
+  var msg=pct>=90?'Excellent':pct>=70?'Good work':pct>=50?'Getting there':'Keep practising';
+  clearTimeout(tick);
+  prog.textContent='';sc.textContent='';track.style.display='none';quit.style.display='none';
+  qrow.style.gridTemplateColumns='1fr';q.style.textAlign='center';
+  q.innerHTML='';q.textContent=score+' / '+TOTAL+'  ('+pct+'%)';qa.textContent='';qa.style.opacity='0';
+  opts.innerHTML='';opts.style.opacity='1';
+  fb.innerHTML='';fb.style.textAlign='left';
+  var p=document.createElement('div');
+  p.style.cssText='font-size:22px;color:var(--ink);margin-bottom:22px;text-align:center;';
+  p.textContent=msg+'!';
+  fb.appendChild(p);
+  if(!log.length){
+    var d=document.createElement('div');
+    d.style.cssText='font-size:18px;text-align:center;color:var(--ok-ink);';
+    d.textContent='Nothing missed this round';
+    fb.appendChild(d);
+  } else {
+    var h=document.createElement('div');
+    h.style.cssText='font-size:16px;color:var(--muted);margin-bottom:8px;';
+    h.textContent='Keep working on these:';
+    fb.appendChild(h);
+    log.forEach(function(r){
+      var row=document.createElement('div');
+      row.className='row';row.textContent=r.q+' = '+r.ans;
+      fb.appendChild(row);
+    });
+  }
+  var wrap=document.createElement('div');
+  wrap.style.cssText='text-align:center;margin-top:22px;';
+  wrap.appendChild(bigBtn('Continue Quiz',reset));
+  fb.appendChild(wrap);
+  var lw=document.createElement('div');
+  lw.style.cssText='text-align:center;margin-top:14px;';
+  var lk=document.createElement('button');
+  lk.className='link';lk.textContent='Clear quiz history';
+  lk.addEventListener('click',wipe);
+  lw.appendChild(lk);fb.appendChild(lw);
+}
+load();
+welcome();
+</script>
+</body>
+</html>
