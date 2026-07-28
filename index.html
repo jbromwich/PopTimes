@@ -16,14 +16,14 @@
   --page:#e9eef5; --panel:#f2f6fb; --ink:#1e2530; --muted:#5f6b7a;
   --line:#cdd8e6; --line-strong:#a8b7c9; --accent:#2f6ea8;
   --ok-bg:#dcefdf; --ok-ink:#22622f; --bad-bg:#f6dcd9; --bad-ink:#95322a; --radius:8px;
-  --m0:#93372a; --m50:#d69a3e; --m100:#86cf92; --dot:#8fa3b8;
+  --m0:#93372a; --m50:#d69a3e; --m100:#86cf92; --dot:#8fa3b8; --accent2:#7a5ea8;
 }
 @media (prefers-color-scheme: dark){
   :root{
     --page:#15191f; --panel:#1d232c; --ink:#e8edf4; --muted:#94a1b2;
     --line:#2f3843; --line-strong:#4a5765; --accent:#8ab6e0;
     --ok-bg:#1f3d27; --ok-ink:#9fdcae; --bad-bg:#43241f; --bad-ink:#f0a79c;
-    --m0:#b4503c; --m50:#d6a04a; --m100:#8ad69c; --dot:#5c6b7d;
+    --m0:#b4503c; --m50:#d6a04a; --m100:#8ad69c; --dot:#5c6b7d; --accent2:#b9a2e0;
   }
 }
 *{box-sizing:border-box}
@@ -60,7 +60,15 @@ body{
 #fb button.link{border:none;background:none;color:var(--muted);font-size:15px;text-decoration:underline;padding:8px}
 
 /* ---- progress screen ---- */
-.pg-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding-bottom:20px;border-bottom:1px solid var(--line)}
+.pg-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding-bottom:20px;border-bottom:1px solid var(--line)}
+.pg-meters{display:flex;flex-direction:column;gap:15px}
+.pg-meter .mh{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;color:var(--muted);margin-bottom:7px}
+.pg-meter .mh b{font-weight:400;font-size:18px;color:var(--ink);font-variant-numeric:tabular-nums}
+.pg-meter .mt{height:10px;border-radius:5px;background:var(--line);overflow:hidden}
+.pg-meter .mt i{display:block;height:100%;border-radius:5px}
+.pg-keys{display:flex;gap:18px;margin-top:12px;font-size:12px;color:var(--muted);flex-wrap:wrap}
+.pg-keys>span{display:flex;align-items:center;gap:6px}
+.pg-keys i{width:14px;height:3px;border-radius:2px;display:block}
 .pg-stat{text-align:center}
 .pg-stat .n{font-size:30px;line-height:1.1;color:var(--ink);font-variant-numeric:tabular-nums}
 .pg-stat .n.up{color:var(--ok-ink)}
@@ -81,7 +89,7 @@ body{
 .pg-chart{width:100%;overflow-x:auto}
 .pg-chart svg{display:block;width:100%;height:auto}
 .pg-foot{margin-top:10px;display:flex;justify-content:space-between;font-size:11px;color:var(--muted)}
-.pg-milestone{margin-top:22px;padding-top:18px;border-top:1px solid var(--line);text-align:center;font-size:15px;color:var(--muted)}
+.pg-milestone{margin-top:22px;padding-top:18px;border-top:1px solid var(--line);text-align:center;font-size:15px;color:var(--muted);text-wrap:balance}
 .pg-milestone b{color:var(--ink);font-weight:400}
 .pg-clear{margin-top:20px;text-align:center}
 @media (prefers-reduced-motion: reduce){*{transition:none !important}}
@@ -96,8 +104,8 @@ body{
   <div id="fb"></div>
 </div>
 <script>
-var F=[3,4,5,6,7,8,9,12],TOTAL=20,KEY='poptimes-v2',OLDKEY='times-tables-stats',GRACE=2500;
-var TARGET=2000,MAXHIST=200;
+var F=[3,4,5,6,7,8,9,12],TOTAL=20,KEY='poptimes-v3',GRACE=2500;
+var OLDKEYS=['times-tables-stats','poptimes-v2'],MAXHIST=200;
 var q=document.getElementById('q'),qa=document.getElementById('qa'),opts=document.getElementById('opts'),
     fb=document.getElementById('fb'),prog=document.getElementById('prog'),sc=document.getElementById('score'),
     bar=document.getElementById('bar'),qrow=document.getElementById('qrow'),track=document.getElementById('track'),
@@ -105,6 +113,7 @@ var q=document.getElementById('q'),qa=document.getElementById('qa'),opts=documen
 quit.addEventListener('click',function(){welcome();});
 chartBtn.addEventListener('click',function(){progress();});
 var a,b,ans,score=0,n=0,lock=false,t0=0,stats={},hist=[],recent=[],log=[],tick=0,testMs=0;
+var dropped=false,quick=0;
 var PAIRS=[];
 for(var i=0;i<F.length;i++)for(var j=i+1;j<F.length;j++)PAIRS.push([F[i],F[j]]);
 PAIRS.push([10,11],[11,11],[11,12],[10,12],[12,12]);
@@ -113,7 +122,7 @@ function key(x,y){return Math.min(x,y)+'x'+Math.max(x,y)}
 function rnd(x){return Math.floor(Math.random()*x)}
 function clamp(v,lo,hi){return Math.max(lo,Math.min(hi,v))}
 function load(){
-  try{localStorage.removeItem(OLDKEY);}catch(e){}
+  try{OLDKEYS.forEach(function(k){localStorage.removeItem(k);});}catch(e){}
   try{
     var r=localStorage.getItem(KEY);
     if(r){var o=JSON.parse(r);stats=o.f||{};hist=o.h||[];}
@@ -141,13 +150,13 @@ function drop(){
   var wrong=alive().filter(function(c){return +c.textContent!==ans;});
   if(wrong.length<=1){tick=setTimeout(timeup,stepMs());return;}
   var victim=wrong[rnd(wrong.length)];
-  victim.style.opacity='0';victim.style.pointerEvents='none';
+  victim.style.opacity='0';victim.style.pointerEvents='none';dropped=true;
   tick=setTimeout(wrong.length-1<=1?timeup:drop,stepMs());
 }
 function timeup(){if(!lock)pick(null,null,true);}
 function next(){
   if(n>=TOTAL)return finish();
-  lock=false;fb.textContent='';n++;quit.style.display='block';
+  lock=false;dropped=false;fb.textContent='';n++;quit.style.display='block';
   qa.textContent='';qa.style.opacity='0';
   opts.style.opacity='1';opts.style.pointerEvents='auto';
   prog.textContent='Question '+n+' of '+TOTAL;
@@ -180,9 +189,10 @@ function pick(v,btn,timedOut){
   if(lock)return;lock=true;clearTimeout(tick);
   var el=Date.now()-t0,k=key(a,b),ok=!timedOut&&v===ans,maxT=GRACE+5*stepMs();
   var spent=ok?Math.min(el,maxT):maxT;
-  var s=stats[k]||(stats[k]={t:0,n:0,w:0,o:0});
-  s.t+=spent;s.n++;if(!ok)s.w++;s.o=(a<b)?0:1;
-  testMs+=spent;
+  var wasQuick=ok&&!dropped;
+  var s=stats[k]||(stats[k]={t:0,n:0,w:0,q:0,o:0});
+  s.t+=spent;s.n++;if(!ok)s.w++;if(wasQuick)s.q=(s.q||0)+1;s.o=(a<b)?0:1;
+  testMs+=spent;if(wasQuick)quick++;
   if(ok){
     score++;
     btn.style.background='var(--ok-bg)';btn.style.color='var(--ok-ink)';
@@ -214,7 +224,7 @@ function chrome(showQuit,showChart){
 }
 function reset(){
   track.style.display='';qrow.style.display='';
-  score=0;n=0;recent=[];log=[];testMs=0;sc.textContent='Score 0';
+  score=0;n=0;recent=[];log=[];testMs=0;quick=0;dropped=false;sc.textContent='Score 0';
   chrome(true,false);
   fb.innerHTML='';fb.style.textAlign='center';
   qrow.style.gridTemplateColumns='1fr 1fr';q.style.textAlign='right';
@@ -248,7 +258,7 @@ function finish(){
   var pct=Math.round(score/TOTAL*100);
   var msg=pct>=90?'Excellent':pct>=70?'Good work':pct>=50?'Getting there':'Keep practising';
   clearTimeout(tick);
-  hist.push({d:dayKey(new Date()),c:score,t:Math.round(testMs),n:TOTAL});
+  hist.push({d:dayKey(new Date()),c:score,q:quick,t:Math.round(testMs),n:TOTAL});
   if(hist.length>MAXHIST)hist=hist.slice(-MAXHIST);
   save();
   prog.textContent='';sc.textContent='';track.style.display='none';qrow.style.display='';
@@ -290,13 +300,18 @@ function finish(){
 /* ---------- progress ---------- */
 function pad(x){return x<10?'0'+x:''+x}
 function dayKey(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())}
-function popScore(r){
-  var acc=r.c/r.n, speed=clamp(Math.sqrt(TARGET/(r.t/r.n)),0.5,1.2);
-  return 100*acc*speed;
-}
+/* Two independent measures, both genuine percentages.
+   Correct: how many of the 20 were right.
+   Instant: of those you got right, how many you answered before any
+   wrong option disappeared. Dividing by correct rather than by 20 is
+   what keeps the two from dragging each other down. */
+function pcCorrect(r){return r.c/r.n}
+function pcInstant(r){return r.c?(r.q||0)/r.c:0}
+function isPerfect(r){return r.c===r.n&&(r.q||0)===r.n}
+/* Per fact: how often you get it right and instantly, damped toward
+   neutral while attempts are few so one unlucky answer can't paint it red. */
 function mastery(s){
-  var acc=1-s.w/s.n, speed=clamp(Math.sqrt(TARGET/(s.t/s.n)),0.4,1.15);
-  var raw=clamp(acc*speed,0,1), conf=s.n/(s.n+2);
+  var raw=(s.q||0)/s.n, conf=s.n/(s.n+2);
   return 0.5+(raw-0.5)*conf;
 }
 function dayStreak(){
@@ -364,33 +379,48 @@ function weakest(){
 }
 function buildChart(){
   var wrap=el('div','pg-chart');
-  var scores=hist.map(popScore);
-  var W=476,H=190,PL=6,PR=6,PT=22,PB=14,maxY=130;
-  var last=scores.length-1;
-  var x=function(i){return scores.length<2?W/2:PL+(W-PL-PR)*i/(scores.length-1);};
+  var A=hist.map(function(r){return pcCorrect(r)*100;}),
+      B=hist.map(function(r){return pcInstant(r)*100;});
+  var W=476,H=190,PL=6,PR=6,PT=20,PB=14,maxY=108,last=A.length-1;
+  var x=function(i){return A.length<2?W/2:PL+(W-PL-PR)*i/(A.length-1);};
   var y=function(v){return PT+(H-PT-PB)*(1-clamp(v,0,maxY)/maxY);};
-  var line=cssVar('--line'),muted=cssVar('--muted'),accent=cssVar('--accent'),dot=cssVar('--dot'),ink=cssVar('--ink');
-  var s='';
-  s+='<line x1="'+PL+'" y1="'+y(100)+'" x2="'+(W-PR)+'" y2="'+y(100)+'" stroke="'+line+'" stroke-width="1" stroke-dasharray="3 4"/>';
-  s+='<text x="'+PL+'" y="'+(y(100)-6)+'" font-size="10" fill="'+muted+'">100%</text>';
-  if(scores.length>=3){
-    var sm=scores.map(function(_,i){
-      var arr=scores.slice(Math.max(0,i-2),i+1);
-      return arr.reduce(function(p,q2){return p+q2;},0)/arr.length;
+  function smooth(arr){
+    return arr.map(function(_,i){
+      var win=arr.slice(Math.max(0,i-2),i+1);
+      return win.reduce(function(p,c){return p+c;},0)/win.length;
     });
-    var path='M '+x(0)+' '+y(sm[0]);
-    sm.forEach(function(v,i){if(i)path+=' L '+x(i)+' '+y(v);});
-    s+='<path d="'+path+' L '+x(last)+' '+(H-PB)+' L '+x(0)+' '+(H-PB)+' Z" fill="'+accent+'" opacity="0.10"/>';
-    s+='<path d="'+path+'" fill="none" stroke="'+accent+'" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>';
   }
-  scores.forEach(function(v,i){
-    s+='<circle cx="'+x(i)+'" cy="'+y(v)+'" r="2.5" fill="'+dot+'"/>';
+  function pathOf(arr){
+    var d='M '+x(0)+' '+y(arr[0]);
+    arr.forEach(function(v,i){if(i)d+=' L '+x(i)+' '+y(v);});
+    return d;
+  }
+  var line=cssVar('--line'),muted=cssVar('--muted'),
+      c1=cssVar('--accent'),c2=cssVar('--accent2');
+  var sa=smooth(A),sb=smooth(B),s='';
+  s+='<line x1="'+PL+'" y1="'+y(100)+'" x2="'+(W-PR)+'" y2="'+y(100)+'" stroke="'+line+'" stroke-width="1" stroke-dasharray="3 4"/>';
+  s+='<text x="'+PL+'" y="'+(y(100)-5)+'" font-size="10" fill="'+muted+'">100%</text>';
+  s+='<path d="'+pathOf(sa)+' L '+x(last)+' '+(H-PB)+' L '+x(0)+' '+(H-PB)+' Z" fill="'+c1+'" opacity="0.08"/>';
+  [[sb,c2],[sa,c1]].forEach(function(p){
+    s+='<path d="'+pathOf(p[0])+'" fill="none" stroke="'+p[1]+'" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>';
   });
-  s+='<circle cx="'+x(last)+'" cy="'+y(scores[last])+'" r="5" fill="'+accent+'"/>';
-  s+='<text x="'+(x(last)-10)+'" y="'+(y(scores[last])-10)+'" text-anchor="end" font-size="15" fill="'+ink+'">'+Math.round(scores[last])+'%</text>';
-  wrap.innerHTML='<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Score across '+
-    scores.length+' test'+(scores.length===1?'':'s')+', latest '+Math.round(scores[last])+'">'+s+'</svg>';
+  [[sb,c2],[sa,c1]].forEach(function(p){
+    s+='<circle cx="'+x(last)+'" cy="'+y(p[0][last])+'" r="4.5" fill="'+p[1]+'"/>';
+  });
+  wrap.innerHTML='<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Correct and instant answers across '+
+    A.length+' tests; latest '+Math.round(A[last])+'% correct, '+Math.round(B[last])+'% instant">'+s+'</svg>';
   return wrap;
+}
+function meter(label,num,den,ramp){
+  var m=el('div','pg-meter'),h=el('div','mh');
+  h.appendChild(el('span',null,label));
+  h.appendChild(el('b',null,num+' / '+den));
+  m.appendChild(h);
+  var t=el('div','mt'),f=el('i'),pc=den?num/den:0;
+  f.style.width=Math.round(pc*100)+'%';
+  f.style.background=ramp(pc);
+  t.appendChild(f);m.appendChild(t);
+  return m;
 }
 function progress(){
   clearTimeout(tick);lock=true;
@@ -401,16 +431,22 @@ function progress(){
   qa.textContent='';qa.style.opacity='0';
   fb.innerHTML='';fb.style.textAlign='left';
 
-  var scores=hist.map(popScore);
-  var best=scores.length?Math.round(Math.max.apply(null,scores)):0;
-  var delta=scores.length>1?Math.round(scores[scores.length-1]-scores[0]):null;
+  var ramp=makeRamp(),lastTest=hist[hist.length-1];
+  var perfect=hist.filter(isPerfect).length;
 
   var row=el('div','pg-stats');
   row.appendChild(statCell(hist.length,'Tests'));
-  row.appendChild(statCell(best,'Best',false,'%'));
   row.appendChild(statCell(dayStreak(),'Day streak'));
-  row.appendChild(statCell(delta===null?'–':(delta>0?'+':'')+delta,'Since start',delta>0));
+  row.appendChild(statCell(perfect,'Perfect',perfect>0));
   fb.appendChild(row);
+
+  var s0=el('div','pg-sec');
+  s0.appendChild(el('h2',null,'Last test'));
+  var ms2=el('div','pg-meters');
+  ms2.appendChild(meter('Correct',lastTest.c,lastTest.n,ramp));
+  ms2.appendChild(meter('Instant',lastTest.q||0,lastTest.c,ramp));
+  s0.appendChild(ms2);
+  fb.appendChild(s0);
 
   var s1=el('div','pg-sec');
   s1.appendChild(el('h2',null,'Times table'));
@@ -429,11 +465,21 @@ function progress(){
 
   var s2=el('div','pg-sec');
   s2.appendChild(el('h2',null,'Improvement'));
-  if(hist.length>=2)s2.appendChild(buildChart());
+  if(hist.length>=2){
+    s2.appendChild(buildChart());
+    var keys=el('div','pg-keys');
+    [['Correct','--accent'],['Instant','--accent2']].forEach(function(k){
+      var sp=el('span'),sw=el('i');
+      sw.style.background=cssVar(k[1]);
+      sp.appendChild(sw);sp.appendChild(el('span',null,k[0]));
+      keys.appendChild(sp);
+    });
+    s2.appendChild(keys);
+  }
   if(hist.length<3){
     s2.appendChild(el('p','pg-note',hist.length===1
-      ? 'Your first test is in. Two more and your progress line starts.'
-      : 'One more test and your progress line starts.'));
+      ? 'Your first test is in. Two more and your progress lines start.'
+      : 'One more test and your progress lines start.'));
   } else {
     var f=el('div','pg-foot');
     f.appendChild(el('span',null,'First test'));
@@ -443,10 +489,13 @@ function progress(){
   fb.appendChild(s2);
 
   var ms=el('p','pg-milestone');
-  if(best<100){
-    ms.innerHTML='<b>'+(100-best)+' points</b> to your first 100%';
+  if(isPerfect(lastTest)){
+    ms.innerHTML='A perfect test — all 20 right, all 20 instant.';
   } else {
-    ms.innerHTML='Personal best <b>'+best+'%</b> — keep it up';
+    var needRight=lastTest.n-lastTest.c, needFast=lastTest.c-(lastTest.q||0), parts=[];
+    if(needRight)parts.push('<b>'+needRight+' more right</b>');
+    if(needFast)parts.push('<b>'+needFast+' more instant</b>');
+    ms.innerHTML=parts.join(' and ')+' for a perfect test';
   }
   fb.appendChild(ms);
 
