@@ -300,13 +300,11 @@ function finish(){
 /* ---------- progress ---------- */
 function pad(x){return x<10?'0'+x:''+x}
 function dayKey(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())}
-/* Two independent measures, both genuine percentages.
-   Correct: how many of the 20 were right.
-   Instant: of those you got right, how many you answered before any
-   wrong option disappeared. Dividing by correct rather than by 20 is
-   what keeps the two from dragging each other down. */
+/* Two measures, both out of the same 20 so the bars are directly
+   comparable and both full means a perfect test. The gap between them
+   is exactly the answers that were right but not instant. */
 function pcCorrect(r){return r.c/r.n}
-function pcInstant(r){return r.c?(r.q||0)/r.c:0}
+function pcInstant(r){return (r.q||0)/r.n}
 function isPerfect(r){return r.c===r.n&&(r.q||0)===r.n}
 /* Per fact: how often you get it right and instantly, damped toward
    neutral while attempts are few so one unlucky answer can't paint it red. */
@@ -444,7 +442,7 @@ function progress(){
   s0.appendChild(el('h2',null,'Last test'));
   var ms2=el('div','pg-meters');
   ms2.appendChild(meter('Correct',lastTest.c,lastTest.n,ramp));
-  ms2.appendChild(meter('Instant',lastTest.q||0,lastTest.c,ramp));
+  ms2.appendChild(meter('Instant',lastTest.q||0,lastTest.n,ramp));
   s0.appendChild(ms2);
   fb.appendChild(s0);
 
