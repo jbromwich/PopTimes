@@ -1,0 +1,13 @@
+{
+  "name": "PopTimes",
+  "short_name": "PopTimes",
+  "description": "Times tables games: quiz and Multiplication Loader",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0e2233",
+  "theme_color": "#0e2233",
+  "icons": [
+    { "src": "icons/icon-180.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

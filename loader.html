@@ -4,7 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="PopTimes">
 <meta name="theme-color" content="#0e2233">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
 <title>Multiplication Loader</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -310,8 +313,11 @@ function weightOf(a,b){
   return Math.max(0.5, Math.min(20, (s.t/s.n/1000)*(1+2*(s.w/s.n))));
 }
 function newFact(){
+  // most orders drill this level's focus tables, but a share roams the
+  // whole mode set (weakness-weighted) so every fact gets asked eventually
+  const aList = Math.random()<0.4 ? modeSet() : G.tables;
   const all=[], fresh=[];
-  for (const a of G.tables) for (const b of modeSet()){
+  for (const a of aList) for (const b of modeSet()){
     all.push([a,b]);
     if (!(G.recent||[]).includes(fkey(a,b))) fresh.push([a,b]);
   }
