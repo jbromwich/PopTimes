@@ -11,7 +11,7 @@
 html,body{height:100%;overflow:hidden;background:#0e2233}
 body{touch-action:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;
   font-family:ui-rounded,'SF Pro Rounded',system-ui,-apple-system,sans-serif}
-canvas{display:block;width:100vw;height:100vh}
+canvas{display:block;width:100vw;height:100vh;height:100dvh}
 #exit{
   position:fixed;top:calc(6px + env(safe-area-inset-top));right:10px;z-index:5;
   font-size:26px;line-height:1;padding:8px 12px;text-decoration:none;
@@ -111,11 +111,16 @@ let W = 0, H = 0, DPR = 1;
 function resize(){
   DPR = Math.min(window.devicePixelRatio || 1, 3);
   W = window.innerWidth; H = window.innerHeight;
+  // pin the element to the real visible size — on iOS 100vh overshoots
+  // the visible viewport and drawn positions drift away from tap positions
+  cvs.style.width = W+'px'; cvs.style.height = H+'px';
   cvs.width = W * DPR; cvs.height = H * DPR;
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   layout();
 }
 window.addEventListener('resize', resize);
+window.addEventListener('orientationchange', resize);
+if (window.visualViewport) window.visualViewport.addEventListener('resize', resize);
 
 /* ---------- layout regions ---------- */
 const L = {};              // computed each resize
@@ -1515,7 +1520,11 @@ function showProgress(){
 cvs.addEventListener('pointerdown', e=>{
   e.preventDefault();
   audio();
-  const x=e.clientX, y=e.clientY;
+  // map through the canvas's actual on-screen rect so taps always line up,
+  // even if the browser stretches the element (iOS toolbar show/hide)
+  const r = cvs.getBoundingClientRect();
+  const x = (e.clientX - r.left) * (W / r.width);
+  const y = (e.clientY - r.top) * (H / r.height);
   const hit=(b)=>b && x>=b.x && x<=b.x+b.w && y>=b.y && y<=b.y+b.h;
   if (G.scene==='menu'){
     for (const mb of (G.modeBtns||[])){
