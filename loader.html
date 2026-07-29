@@ -302,10 +302,24 @@ const MISS_LIMIT = 3;   // misses in a row break the conveyor
 /* ================================================================
    ORDERS & CANDIDATES
    ================================================================ */
+// weakness-weighted fact picking, same formula as the quiz:
+// never-asked facts come first, then slow and often-missed ones
+function weightOf(a,b){
+  const s = ST.f[fkey(a,b)];
+  if (!s || !s.n) return 8;
+  return Math.max(0.5, Math.min(20, (s.t/s.n/1000)*(1+2*(s.w/s.n))));
+}
 function newFact(){
-  const a = pick(G.tables);
-  const b = pick(modeSet());
-  return Math.random()<0.5 ? {a,b} : {a:b,b:a};
+  const all=[], fresh=[];
+  for (const a of G.tables) for (const b of modeSet()){
+    all.push([a,b]);
+    if (!(G.recent||[]).includes(fkey(a,b))) fresh.push([a,b]);
+  }
+  const src = fresh.length ? fresh : all;
+  const w = src.map(p=>weightOf(p[0],p[1]));
+  let r = Math.random()*w.reduce((x,y)=>x+y,0), f = src[0];
+  for (let i=0;i<src.length;i++){ r-=w[i]; if(r<=0){ f=src[i]; break; } }
+  return Math.random()<0.5 ? {a:f[0],b:f[1]} : {a:f[1],b:f[0]};
 }
 
 function spawnOrder(atP){
@@ -317,6 +331,9 @@ function spawnOrder(atP){
     const g = newFact(); f.a=g.a; f.b=g.b;
   }
   G.orders.push({a:f.a, b:f.b, p:atP!==undefined?atP:-0.05, state:'ride', st:0});
+  // don't re-ask the same fact for a few orders
+  (G.recent=G.recent||[]).push(fkey(f.a,f.b));
+  if (G.recent.length>4) G.recent.shift();
 }
 
 function nearMisses(a,b){
@@ -402,7 +419,9 @@ function shuffleColours(){
    FLOW
    ================================================================ */
 function startGame(){
-  G.level = 0;
+  // start near your best so runs reach new material instead of re-grinding
+  G.level = Math.max(0, G.best - 2);
+  G.recent = [];
   startLevel();
   G.scene='play';
 }
@@ -1388,6 +1407,11 @@ function drawMenu(){
   ctx.fillStyle='#fff';
   ctx.font='800 '+Math.round(bh*0.42)+'px ui-rounded, system-ui, sans-serif';
   ctx.fillText('PLAY', W/2, by+bh/2+1);
+  if (G.best>2){
+    ctx.fillStyle=DIM;
+    ctx.font='600 '+Math.round(clamp(W*0.036,12,16))+'px ui-rounded, system-ui, sans-serif';
+    ctx.fillText('starting at level '+(Math.max(0,G.best-2)+1), W/2, by+bh+20);
+  }
 
   drawHold();
   if (G.best>0){   // on the coaming, mirroring the fill counter
