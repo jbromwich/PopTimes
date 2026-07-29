@@ -633,8 +633,10 @@ function frame(ts){
 }
 
 function update(dt){
-  // treads scroll at exactly the speed the order cards ride
-  G.beltScroll += dt * (L.edgeX + W*0.22) / orderTravelTime();
+  // treads scroll at exactly the speed the order cards ride;
+  // the line stops while a crate is being loaded (proof animation)
+  if (G.scene!=='play' || G.phase==='aim')
+    G.beltScroll += dt * (L.edgeX + W*0.22) / orderTravelTime();
   G.shake = Math.max(0, G.shake - dt*3);
 
   // effects
@@ -686,12 +688,15 @@ function update(dt){
   // conveyor
   const spd = dt / orderTravelTime();
   const held = (G.phase!=='aim');
+  // during the proof animation the belt pauses so answering never costs
+  // time — except the next-up card, which slides in until fully visible
+  // so the player can read it while the animation runs
+  const nextUp = !held ? null :
+    (G.orders[0] && G.orders[0].state==='held') ? G.orders[1] : G.orders[0];
   for (const o of G.orders){
-    if (o.state==='ride' && !(held && o===G.orders[0])){
-      // while the proof animation holds the front card, incoming cards
-      // hustle in so the next question is fully readable by resolve time
-      const mult = (held && o.p < 0.32) ? 3 : 1;
-      o.p += spd * mult;
+    if (o.state==='ride'){
+      if (!held) o.p += spd;
+      else if (o===nextUp && o.p < 0.32) o.p += spd*3;
     }
     o.st += dt;
   }
