@@ -714,9 +714,12 @@ function update(dt){
   }
   for (let i=1;i<G.orders.length;i++){
     const ahead = G.orders[i-1], me = G.orders[i];
+    if (ahead.state==='held' && !ahead.ret) continue;   // off the belt, no slot to collide with
     if (ahead.p - me.p < gap){
       if (!me.bump && (ahead.kv||ahead.bump)) me.bump = 1;   // got hit
-      me.p = ahead.p - gap;
+      // shove, don't teleport — approach the spacing limit quickly
+      const limit = ahead.p - gap;
+      me.p += (limit - me.p) * Math.min(1, 14*dt);
     }
   }
   // a new order has reached the front → deal fresh candidates
