@@ -185,7 +185,8 @@ function drop(){
 function timeup(){if(!lock)pick(null,null,true);}
 function next(){
   if(n>=TOTAL)return finish();
-  lock=false;dropped=false;fb.textContent='';n++;quit.style.display='block';
+  lock=false;dropped=false;fb.textContent='';n++;
+  quit.style.display='block';document.getElementById('exit').style.display='none';
   qa.textContent='';qa.style.opacity='0';
   opts.style.opacity='1';opts.style.pointerEvents='auto';
   prog.textContent='Question '+n+' of '+TOTAL;
@@ -549,6 +550,9 @@ function progress(){
 }
 load();
 welcome();
+/* iOS restores the page from the back-forward cache mid-quiz;
+   reset to the title so the header buttons are consistent */
+window.addEventListener('pageshow',function(e){if(e.persisted)welcome();});
 </script>
 </body>
 </html>

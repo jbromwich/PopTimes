@@ -1664,6 +1664,14 @@ cvs.addEventListener('pointerdown', e=>{
    ================================================================ */
 const creditEl = document.getElementById('credit');
 const chartEl = document.getElementById('chart');
+// in-game the X quits to the loader's own title; from the title it exits to the menu
+document.getElementById('exit').addEventListener('click', e=>{
+  if (G.scene!=='menu'){
+    e.preventDefault();
+    G.orders=[]; G.parts=[]; G.fx=[]; G.cands=[]; G.anim=null;
+    G.phase='aim'; G.scene='menu';
+  }
+});
 chartEl.addEventListener('click', ()=>{ audio(); sTap(); showProgress(); });
 setInterval(()=>{
   const onMenu = G.scene==='menu';
