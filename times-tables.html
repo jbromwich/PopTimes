@@ -114,9 +114,9 @@ body{
 </div>
 <script>
 var MODES={
-  beginner:{f:[2,3,4,5,10],label:'Beginner',sub:'easy tables'},
-  regular:{f:[2,3,4,5,6,7,8,9,10,11,12],label:'Regular',sub:'all tables'},
-  expert:{f:[3,4,5,6,7,8,9,12],label:'Expert',sub:'hard tables'}
+  beginner:{label:'Beginner',sub:'easy tables'},
+  regular:{label:'Regular',sub:'all tables'},
+  expert:{label:'Expert',sub:'hard tables'}
 };
 var mode=localStorage.getItem('poptimes-mode');
 if(!MODES[mode])mode='expert';
@@ -131,13 +131,19 @@ chartBtn.addEventListener('click',function(){progress();});
 var a,b,ans,score=0,n=0,lock=false,t0=0,stats={},hist=[],recent=[],log=[],tick=0,testMs=0;
 var dropped=false,quick=0;
 var PAIRS=[];
+/* expert = the original curated list; regular = every fact 1-12;
+   beginner = exactly the facts expert leaves out */
 function buildPairs(){
-  var F=MODES[mode].f;
-  PAIRS=[];
-  // beginner and regular include perfect squares (3x3, 9x9, ...)
-  var jFrom=mode==='expert'?1:0;
-  for(var i=0;i<F.length;i++)for(var j=i+jFrom;j<F.length;j++)PAIRS.push([F[i],F[j]]);
-  if(mode==='expert')PAIRS.push([10,11],[11,11],[11,12],[10,12],[12,12]);
+  var T=[3,4,5,6,7,8,9,12],ex=[],i,j;
+  for(i=0;i<T.length;i++)for(j=i+1;j<T.length;j++)ex.push([T[i],T[j]]);
+  ex.push([10,11],[11,11],[11,12],[10,12],[12,12]);
+  if(mode==='expert'){PAIRS=ex;return;}
+  var all=[];
+  for(i=1;i<=12;i++)for(j=i;j<=12;j++)all.push([i,j]);
+  if(mode==='regular'){PAIRS=all;return;}
+  var set={};
+  ex.forEach(function(p){set[p[0]+'x'+p[1]]=1;});
+  PAIRS=all.filter(function(p){return !set[p[0]+'x'+p[1]];});
 }
 buildPairs();
 

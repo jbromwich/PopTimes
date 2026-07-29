@@ -61,7 +61,7 @@ canvas{display:block;width:100vw;height:100vh;height:100dvh}
 .pg-sec{padding-top:22px}
 .pg-sec + .pg-sec{margin-top:22px;border-top:1px solid var(--line)}
 .pg-sec h2{font-size:11px;font-weight:400;color:var(--muted);letter-spacing:.09em;text-transform:uppercase;margin:0 0 14px}
-.pg-grid{display:grid;grid-template-columns:18px repeat(11,1fr);gap:3px}
+.pg-grid{display:grid;grid-template-columns:18px repeat(12,1fr);gap:3px}
 .pg-grid .ax{display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums}
 .pg-grid .cell{aspect-ratio:1;border-radius:3px}
 .pg-grid .cell.off{border:1px dashed var(--line);background:transparent}
@@ -219,11 +219,27 @@ const G = {
 };
 
 const VER = '1.0';
-// shared three-mode table sets (expert = the quiz's tricky F list)
+// shared three-mode fact lists (same rules as the quiz):
+// expert = the original curated list; regular = all 144; beginner = the rest
 const EASY   = [2,3,4,5,10];
-const ALLT   = [2,3,4,5,6,7,8,9,10,11,12];
+const ALLT   = [1,2,3,4,5,6,7,8,9,10,11,12];
 const TRICKY = [3,4,5,6,7,8,9,12];
-function modeSet(){ return G.pref==='expert' ? TRICKY : G.pref==='beginner' ? EASY : ALLT; }
+const EXPAIRS = (()=>{
+  const out=[];
+  for (let i=0;i<TRICKY.length;i++) for (let j=i+1;j<TRICKY.length;j++) out.push([TRICKY[i],TRICKY[j]]);
+  out.push([10,11],[11,11],[11,12],[10,12],[12,12]);
+  return out;
+})();
+const ALLPAIRS = (()=>{
+  const out=[];
+  for (let i=1;i<=12;i++) for (let j=i;j<=12;j++) out.push([i,j]);
+  return out;
+})();
+const BEGPAIRS = (()=>{
+  const ex=new Set(EXPAIRS.map(p=>p[0]+'x'+p[1]));
+  return ALLPAIRS.filter(p=>!ex.has(p[0]+'x'+p[1]));
+})();
+function modePairs(){ return G.pref==='expert' ? EXPAIRS : G.pref==='beginner' ? BEGPAIRS : ALLPAIRS; }
 
 /* ---------- persistent stats (mirrors the quiz's shape) ---------- */
 const SKEY = 'ml-stats-v1';
@@ -291,9 +307,9 @@ const XLEVELS = [
 function levelDef(n){
   const list = G.pref==='expert' ? XLEVELS : G.pref==='beginner' ? BLEVELS : LEVELS;
   if (n < list.length) return list[n];
-  return {tables: modeSet(), mode: n%2 ? 'reverse' : 'forward'};
+  return {tables: [...new Set(modePairs().flat())], mode: n%2 ? 'reverse' : 'forward'};
 }
-function factorMax(){ return G.pref==='beginner' ? 10 : 12; }
+function factorMax(){ return 12; }
 
 /* ---------- pacing ---------- */
 function orderTravelTime(){ return 16 - 9.5*G.pace; }        // seconds across belt
@@ -314,14 +330,14 @@ function weightOf(a,b){
 }
 function newFact(){
   // most orders drill this level's focus tables, but a share roams the
-  // whole mode set (weakness-weighted) so every fact gets asked eventually
-  const aList = Math.random()<0.4 ? modeSet() : G.tables;
-  const all=[], fresh=[];
-  for (const a of aList) for (const b of modeSet()){
-    all.push([a,b]);
-    if (!(G.recent||[]).includes(fkey(a,b))) fresh.push([a,b]);
+  // whole mode list (weakness-weighted) so every fact gets asked eventually
+  let pool = modePairs();
+  if (Math.random()>=0.4){
+    const focus = pool.filter(p=>G.tables.includes(p[0])||G.tables.includes(p[1]));
+    if (focus.length) pool = focus;
   }
-  const src = fresh.length ? fresh : all;
+  const fresh = pool.filter(p=>!(G.recent||[]).includes(fkey(p[0],p[1])));
+  const src = fresh.length ? fresh : pool;
   const w = src.map(p=>weightOf(p[0],p[1]));
   let r = Math.random()*w.reduce((x,y)=>x+y,0), f = src[0];
   for (let i=0;i<src.length;i++){ r-=w[i]; if(r<=0){ f=src[i]; break; } }
@@ -347,7 +363,7 @@ function nearMisses(a,b){
   const cand=[[a,b+1],[a,b-1],[a+1,b],[a-1,b],[a+1,b-1],[a-1,b+1],[a+1,b+1],[a-1,b-1],[a,b+2],[a+2,b],[a-2,b],[a,b-2]];
   shuffle(cand);
   for (const [r,c] of cand){
-    if (r<2||c<2||r>fmax||c>fmax) continue;
+    if (r<1||c<1||r>fmax||c>fmax) continue;
     if (seen.has(r*c)) continue;      // keep product labels unambiguous
     seen.add(r*c); out.push({a:r,b:c});
   }
@@ -457,8 +473,8 @@ function fulfilOrder(){
   G.combo++;
   G.missRow = 0;
   G.pace = clamp(G.pace + 0.045, paceFloor(), 1);
-  // no dead time: the next order should already be entering the screen
-  const minP = 0.12;
+  // no dead time: the next order must be FULLY on screen and readable
+  const minP = 0.30;
   if (!G.orders.length){
     spawnOrder(minP);
   } else if (G.orders[0].p < minP){
@@ -759,7 +775,6 @@ function draw(){
   sky.addColorStop(0,SKY1); sky.addColorStop(1,SKY2);
   ctx.fillStyle=sky; ctx.fillRect(-10,-10,W+20,H+20);
 
-  drawSea();
   drawBelt();
   for (const o of G.orders) drawOrder(o);
   drawSplashes();
@@ -795,22 +810,6 @@ function drawBroken(){
   ctx.fillStyle=DIM;
   ctx.fillText('You reached level '+(G.level+1), W/2, y+64);
   ctx.globalAlpha = 1;
-}
-
-/* ---------- sea + dock edge ---------- */
-function drawSea(){
-  const x = L.edgeX;
-  ctx.fillStyle=SEA;
-  ctx.fillRect(x, L.beltTop-8, W-x+10, L.beltH+H*0.06);
-  // waves
-  ctx.strokeStyle=SEA2; ctx.lineWidth=2;
-  for (let i=0;i<3;i++){
-    const wy = L.beltTop + 14 + i*(L.beltH/3) + Math.sin(G.t*2+i)*3;
-    ctx.beginPath();
-    ctx.moveTo(x+4, wy);
-    for (let wx=x+4; wx<W; wx+=10) ctx.quadraticCurveTo(wx+5, wy+3, wx+10, wy);
-    ctx.stroke();
-  }
 }
 
 /* ---------- conveyor ---------- */
@@ -979,9 +978,9 @@ function drawCandidate(c){
 
   if (G.mode==='forward'){
     drawCrateGrid(c.gx, c.gy, c.rows, c.cols, G.unit, c.col);
-    // product label (badge in the crate's centre)
+    // product label — one size for every crate, allowed to bleed past small ones
     const label = ''+(c.a*c.b);
-    const fs = clamp(Math.min(c.gw, c.gh)*0.42, 15, 44);
+    const fs = clamp(W*0.075, 24, 38);
     ctx.font='800 '+Math.round(fs)+'px ui-rounded, system-ui, sans-serif';
     const tw = ctx.measureText(label).width;
     ctx.fillStyle='rgba(20,16,10,0.55)';
@@ -1473,10 +1472,10 @@ function dayStreak(){
 function buildGrid(){
   const g=el('div','pg-grid'), ramp=makeRamp();
   g.appendChild(el('div','ax'));
-  for(let c=2;c<=12;c++) g.appendChild(el('div','ax',c));
-  for(let r=2;r<=12;r++){
+  for(let c=1;c<=12;c++) g.appendChild(el('div','ax',c));
+  for(let r=1;r<=12;r++){
     g.appendChild(el('div','ax',r));
-    for(let c2=2;c2<=12;c2++){
+    for(let c2=1;c2<=12;c2++){
       const s=ST.f[fkey(r,c2)], cell2=el('div','cell'+(s&&s.n?'':' off'));
       if(s&&s.n){
         cell2.style.background=ramp(mastery(s));
