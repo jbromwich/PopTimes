@@ -134,9 +134,10 @@ var PAIRS=[];
 function buildPairs(){
   var F=MODES[mode].f;
   PAIRS=[];
-  for(var i=0;i<F.length;i++)for(var j=i+1;j<F.length;j++)PAIRS.push([F[i],F[j]]);
+  // beginner and regular include perfect squares (3x3, 9x9, ...)
+  var jFrom=mode==='expert'?1:0;
+  for(var i=0;i<F.length;i++)for(var j=i+jFrom;j<F.length;j++)PAIRS.push([F[i],F[j]]);
   if(mode==='expert')PAIRS.push([10,11],[11,11],[11,12],[10,12],[12,12]);
-  if(mode==='regular')PAIRS.push([11,11],[12,12]);
 }
 buildPairs();
 
