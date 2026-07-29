@@ -1038,7 +1038,8 @@ function drawCandidate(c){
       cell(x+i*u, y-u/2, u, col);
     }
     ctx.fillStyle=INK;
-    ctx.font='800 '+Math.round(u*0.95)+'px ui-rounded, system-ui, sans-serif';
+    // uniform label size, matching the forward-mode answer labels
+    ctx.font='800 '+Math.round(clamp(W*0.055,20,28))+'px ui-rounded, system-ui, sans-serif';
     ctx.textAlign='left'; ctx.textBaseline='middle';
     ctx.fillText(n, x+w+u*0.4, y+1);
   }
