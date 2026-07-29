@@ -481,13 +481,13 @@ function fulfilOrder(){
   G.combo++;
   G.missRow = 0;
   G.pace = clamp(G.pace + 0.045, paceFloor(), 1);
-  // no dead time: the next order must be FULLY on screen and readable
+  // no dead time: the next order must be FULLY on screen and readable —
+  // glide it in smoothly (kv decays in update) rather than snapping
   const minP = 0.30;
   if (!G.orders.length){
     spawnOrder(minP);
   } else if (G.orders[0].p < minP){
-    const d = minP - G.orders[0].p;
-    for (const o of G.orders) o.p += d;   // advance the whole queue, gaps intact
+    G.orders[0].kv = (minP - G.orders[0].p) / 0.2;
   }
   buildRound();
 }
@@ -687,7 +687,12 @@ function update(dt){
   const spd = dt / orderTravelTime();
   const held = (G.phase!=='aim');
   for (const o of G.orders){
-    if (o.state==='ride' && !(held && o===G.orders[0])) o.p += spd;
+    if (o.state==='ride' && !(held && o===G.orders[0])){
+      // while the proof animation holds the front card, incoming cards
+      // hustle in so the next question is fully readable by resolve time
+      const mult = (held && o.p < 0.32) ? 3 : 1;
+      o.p += spd * mult;
+    }
     o.st += dt;
   }
   // spawn upcoming orders
