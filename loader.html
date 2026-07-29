@@ -496,6 +496,17 @@ function failOrder(keep){
   }
 }
 
+function dismissBreakdown(){
+  if (G.lvlN>0){
+    ST.h.push({d:dayKey(new Date()), c:G.lvlC, n:G.lvlN, q:G.lvlQ, lv:G.level+1, m:G.pref});
+    if (ST.h.length>MAXHIST) ST.h = ST.h.slice(-MAXHIST);
+    saveStats();
+  }
+  G.orders=[]; G.parts=[]; G.fx=[]; G.cands=[];
+  G.scene='menu';
+  showProgress();
+}
+
 function breakDown(){
   G.scene='broken'; G.brkT=0; G.shake=1;
   G.anim=null; G.phase='aim';
@@ -640,17 +651,7 @@ function update(dt){
   if (Math.abs(G.fill-G.fillShown) < 0.3) G.fillShown = G.fill;
 
   if (G.scene==='broken'){
-    G.brkT += dt;
-    if (G.brkT > 3.2){
-      if (G.lvlN>0){
-        ST.h.push({d:dayKey(new Date()), c:G.lvlC, n:G.lvlN, q:G.lvlQ, lv:G.level+1, m:G.pref});
-        if (ST.h.length>MAXHIST) ST.h = ST.h.slice(-MAXHIST);
-        saveStats();
-      }
-      G.orders=[]; G.parts=[]; G.fx=[]; G.cands=[];
-      G.scene='menu';
-      showProgress();
-    }
+    G.brkT += dt;   // waits for a tap to dismiss (see pointer handler)
     return;
   }
   if (G.scene==='payoff'){
@@ -798,7 +799,7 @@ function drawBroken(){
   ctx.globalAlpha = k;
   ctx.fillStyle='rgba(8,16,24,0.78)';
   const y=H*0.40;
-  rrect(W*0.07, y-70, W*0.86, 150, 14); ctx.fill();
+  rrect(W*0.07, y-70, W*0.86, 200, 14); ctx.fill();
   ctx.textAlign='center'; ctx.textBaseline='middle';
   ctx.fillStyle=BAD;
   ctx.font='800 '+Math.round(clamp(W*0.075,24,38))+'px ui-rounded, system-ui, sans-serif';
@@ -809,6 +810,11 @@ function drawBroken(){
   ctx.fillText('the conveyor gave out.', W/2, y+34);
   ctx.fillStyle=DIM;
   ctx.fillText('You reached level '+(G.level+1), W/2, y+64);
+  if (G.brkT > 0.8){
+    const p=Math.sin(G.t*4)*0.5+0.5;
+    ctx.fillStyle='rgba(238,244,248,'+(0.4+0.4*p)+')';
+    ctx.fillText('Tap to continue', W/2, y+110);
+  }
   ctx.globalAlpha = 1;
 }
 
@@ -1636,6 +1642,10 @@ cvs.addEventListener('pointerdown', e=>{
       }
     }
     if (hit(G.menuBtn)){ sGood(); startGame(); }
+    return;
+  }
+  if (G.scene==='broken'){
+    if (G.brkT > 0.8){ sTap(); dismissBreakdown(); }   // let the snap play first
     return;
   }
   if (G.scene!=='play' || G.phase!=='aim') return;
