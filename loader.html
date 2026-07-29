@@ -360,7 +360,8 @@ function spawnOrder(atP){
     if (!prev || prev.a*prev.b !== f.a*f.b) break;
     const g = newFact(); f.a=g.a; f.b=g.b;
   }
-  G.orders.push({a:f.a, b:f.b, p:atP!==undefined?atP:-0.05, state:'ride', st:0});
+  G.orders.push({a:f.a, b:f.b, p:atP!==undefined?atP:-0.05, state:'ride', st:0,
+    col:CRATES[ri(0,CRATES.length-1)]});
   // don't re-ask the same fact for a few orders
   (G.recent=G.recent||[]).push(fkey(f.a,f.b));
   if (G.recent.length>4) G.recent.shift();
@@ -917,53 +918,59 @@ function drawOrder(o){
   ctx.rotate(tilt);
   ctx.translate(-cw/2, -ch/2);
 
-  // card
-  ctx.fillStyle='rgba(0,0,0,0.25)';
-  rrect(3,4,cw,ch,10); ctx.fill();
-  ctx.fillStyle=CARD;
-  rrect(0,0,cw,ch,10); ctx.fill();
-  ctx.lineWidth=isFront?3:1.5;
-  ctx.strokeStyle = isFront ? (danger>0.4 ? BAD : '#e8b64c') : CARDEDGE;
-  rrect(0,0,cw,ch,10); ctx.stroke();
-
-  ctx.fillStyle=CARDINK;
-  ctx.textAlign='center'; ctx.textBaseline='middle';
-
-  if (G.mode==='forward' || G.scene==='menu'){
-    // symbolic
-    ctx.font='700 '+Math.round(ch*0.30)+'px ui-rounded, system-ui, sans-serif';
-    ctx.fillText(o.a+' × '+o.b, cw/2, ch*0.26);
-    // structural: two factor strips
-    drawStrip(cw*0.5, ch*0.55, cw*0.78, o.a, '#b0693a');
-    drawStrip(cw*0.5, ch*0.80, cw*0.78, o.b, '#4a7fae');
+  if (G.mode==='reverse' && G.scene!=='menu'){
+    // reverse mode: a quantity crate rides the belt
+    const u = Math.min(cw*0.92/o.b, ch*0.74/o.a);
+    const gw=o.b*u, gh=o.a*u, gx=(cw-gw)/2, gy=(ch-gh)/2;
+    drawCrateGrid(gx, gy, o.a, o.b, u, o.col||CRATES[0]);
+    ctx.lineWidth = isFront ? 3.5 : 0;
+    if (isFront){
+      ctx.strokeStyle = danger>0.4 ? BAD : '#e8b64c';
+      rrect(gx-4, gy-4, gw+8, gh+8, 5); ctx.stroke();
+    }
+    // product badge, sized like the field crates' (scaled to the belt)
+    const label=''+(o.a*o.b);
+    const fs = clamp(W*0.055, 18, 28);
+    ctx.font='800 '+Math.round(fs)+'px ui-rounded, system-ui, sans-serif';
+    const tw = ctx.measureText(label).width;
+    ctx.fillStyle='rgba(20,16,10,0.55)';
+    rrect(cw/2-tw/2-7, ch/2-fs*0.62, tw+14, fs*1.24, 7); ctx.fill();
+    ctx.fillStyle='#fff'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(label, cw/2, ch/2+fs*0.04);
   } else {
-    // reverse: the target tray + product
-    const gw=cw*0.5, gh=ch*0.62;
-    const u=Math.min(gw/o.b, gh/o.a);
-    const gx=cw*0.07, gy=(ch-u*o.a)/2;
-    ctx.fillStyle='#e2d4b4';
-    ctx.fillRect(gx,gy,u*o.b,u*o.a);
-    ctx.strokeStyle='#a8926a'; ctx.lineWidth=1;
-    for(let r=0;r<=o.a;r++){ ctx.beginPath();ctx.moveTo(gx,gy+r*u);ctx.lineTo(gx+o.b*u,gy+r*u);ctx.stroke(); }
-    for(let c=0;c<=o.b;c++){ ctx.beginPath();ctx.moveTo(gx+c*u,gy);ctx.lineTo(gx+c*u,gy+o.a*u);ctx.stroke(); }
-    ctx.strokeStyle='#7a6642'; ctx.lineWidth=2;
-    ctx.strokeRect(gx,gy,u*o.b,u*o.a);
-    ctx.fillStyle=CARDINK;
-    ctx.font='700 '+Math.round(ch*0.34)+'px ui-rounded, system-ui, sans-serif';
-    ctx.fillText(o.a*o.b, cw*0.75, ch*0.5);
+    // fact card
+    ctx.fillStyle='rgba(0,0,0,0.25)';
+    rrect(3,4,cw,ch,10); ctx.fill();
+    ctx.fillStyle=CARD;
+    rrect(0,0,cw,ch,10); ctx.fill();
+    ctx.lineWidth=isFront?3:1.5;
+    ctx.strokeStyle = isFront ? (danger>0.4 ? BAD : '#e8b64c') : CARDEDGE;
+    rrect(0,0,cw,ch,10); ctx.stroke();
+    factCardContent(cw, ch, o.a, o.b);
   }
   ctx.restore();
+}
 
-  function drawStrip(cx, cy, maxW, n, col){
-    const u = Math.min(maxW/ (n+1.8), ch*0.16);
+/* the fact card's face: "a × b" over its two labeled factor strips —
+   identical wherever the card appears (conveyor or answer area) */
+function factCardContent(cw, ch, a, b){
+  const base = Math.min(ch, cw*0.88);
+  ctx.fillStyle=CARDINK;
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.font='700 '+Math.round(base*0.30)+'px ui-rounded, system-ui, sans-serif';
+  ctx.fillText(a+' × '+b, cw/2, ch*0.26);
+  strip(ch*0.55, a, '#b0693a');
+  strip(ch*0.80, b, '#4a7fae');
+  function strip(cy, n, col){
+    const u = Math.min(cw*0.78/(n+1.8), base*0.16);
     const w = n*u;
-    const sx = cx - (w + u*1.6)/2;
+    const sx = cw*0.5 - (w + u*1.6)/2;
     ctx.fillStyle=col;
     for (let i=0;i<n;i++){
       rrect(sx+i*u+0.5, cy-u/2+0.5, u-1, u-1, 2); ctx.fill();
     }
     ctx.fillStyle=CARDINK;
-    ctx.font='700 '+Math.round(u*1.1)+'px ui-rounded, system-ui, sans-serif';
+    ctx.font='700 '+Math.max(13, Math.round(u*1.1))+'px ui-rounded, system-ui, sans-serif';
     ctx.textAlign='left';
     ctx.fillText(n, sx+w+u*0.5, cy+1);
     ctx.textAlign='center';
@@ -1017,32 +1024,22 @@ function drawCandidate(c){
     if (reveal) glow(c.gx, c.gy, c.gw, c.gh);
     if (wrongPulse) redX(c.gx, c.gy, c.gw, c.gh, wrongPulse);
   } else {
-    // factor-pair card
-    const s=c.slot, u=G.unit;
-    ctx.fillStyle='rgba(0,0,0,0.22)';
-    rrect(s.x+3, s.y+4, s.w, s.h, 12); ctx.fill();
-    ctx.fillStyle='rgba(244,233,212,0.10)';
-    rrect(s.x, s.y, s.w, s.h, 12); ctx.fill();
-    ctx.strokeStyle='rgba(244,233,212,0.35)'; ctx.lineWidth=1.5;
-    rrect(s.x, s.y, s.w, s.h, 12); ctx.stroke();
-    drawFactorStrip(s, s.y+s.h*0.30, c.a, c.col, u);
-    drawFactorStrip(s, s.y+s.h*0.70, c.b, c.col, u);
+    // reverse mode: the answers are fact cards, same as the conveyor's
+    const s=c.slot;
+    ctx.fillStyle='rgba(0,0,0,0.25)';
+    rrect(s.x+3, s.y+4, s.w, s.h, 10); ctx.fill();
+    ctx.fillStyle=CARD;
+    rrect(s.x, s.y, s.w, s.h, 10); ctx.fill();
+    ctx.strokeStyle=CARDEDGE; ctx.lineWidth=1.5;
+    rrect(s.x, s.y, s.w, s.h, 10); ctx.stroke();
+    ctx.save();
+    ctx.translate(s.x, s.y);
+    factCardContent(s.w, s.h, c.a, c.b);
+    ctx.restore();
     if (reveal) glow(s.x, s.y, s.w, s.h);
     if (wrongPulse) redX(s.x, s.y, s.w, s.h, wrongPulse);
   }
   ctx.restore();
-
-  function drawFactorStrip(s, y, n, col, u){
-    const w=n*u, x=s.x+(s.w-w)/2 - u*0.6;
-    for (let i=0;i<n;i++){
-      cell(x+i*u, y-u/2, u, col);
-    }
-    ctx.fillStyle=INK;
-    // uniform label size, matching the forward-mode answer labels
-    ctx.font='800 '+Math.round(clamp(W*0.055,20,28))+'px ui-rounded, system-ui, sans-serif';
-    ctx.textAlign='left'; ctx.textBaseline='middle';
-    ctx.fillText(n, x+w+u*0.4, y+1);
-  }
 }
 
 function cell(x,y,u,col){
