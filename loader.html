@@ -337,7 +337,15 @@ function newFact(){
     if (focus.length) pool = focus;
   }
   const fresh = pool.filter(p=>!(G.recent||[]).includes(fkey(p[0],p[1])));
-  const src = fresh.length ? fresh : pool;
+  let src = fresh.length ? fresh : pool;
+  // coverage first: 70% of picks cycle through the least-asked facts, so
+  // every fact in the set gets seen and counts stay even; the other 30%
+  // are struggle-weighted practice across the whole pool
+  if (Math.random() >= 0.3){
+    const counts = src.map(p=>{ const s=ST.f[fkey(p[0],p[1])]; return s?s.n:0; });
+    const minN = Math.min(...counts);
+    src = src.filter((p,i)=>counts[i]===minN);
+  }
   const w = src.map(p=>weightOf(p[0],p[1]));
   let r = Math.random()*w.reduce((x,y)=>x+y,0), f = src[0];
   for (let i=0;i<src.length;i++){ r-=w[i]; if(r<=0){ f=src[i]; break; } }

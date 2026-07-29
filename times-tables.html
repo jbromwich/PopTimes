@@ -169,6 +169,13 @@ function stepMs(){return Math.max(900,Math.min(3200,avgMs()*0.4));}
 function pickPair(){
   var pool=PAIRS.filter(function(p){return recent.indexOf(key(p[0],p[1]))===-1;});
   var src=pool.length?pool:PAIRS;
+  /* coverage first: most picks cycle through the least-asked facts so the
+     whole set gets seen evenly; the rest are struggle-weighted practice */
+  if(Math.random()>=0.3){
+    var minN=Infinity;
+    src.forEach(function(p){var s=stats[key(p[0],p[1])],n=s?s.n:0;if(n<minN)minN=n;});
+    src=src.filter(function(p){var s=stats[key(p[0],p[1])];return (s?s.n:0)===minN;});
+  }
   var w=src.map(weight),sum=w.reduce(function(x,y){return x+y;},0),r=Math.random()*sum;
   for(var i=0;i<src.length;i++){r-=w[i];if(r<=0)return src[i];}
   return src[0];
