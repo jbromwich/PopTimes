@@ -328,10 +328,14 @@ function weightOf(a,b){
   if (!s || !s.n) return 8;
   return Math.max(0.5, Math.min(20, (s.t/s.n/1000)*(1+2*(s.w/s.n))));
 }
-function newFact(){
+function newFact(maxP){
   // most orders drill this level's focus tables, but a share roams the
   // whole mode list (weakness-weighted) so every fact gets asked eventually
   let pool = modePairs();
+  if (maxP!=null){
+    pool = pool.filter(p=>p[0]*p[1]<=maxP);
+    if (!pool.length) return null;
+  }
   if (Math.random()>=0.4){
     const focus = pool.filter(p=>G.tables.includes(p[0])||G.tables.includes(p[1]));
     if (focus.length) pool = focus;
@@ -352,13 +356,27 @@ function newFact(){
   return Math.random()<0.5 ? {a:f[0],b:f[1]} : {a:f[1],b:f[0]};
 }
 
+function queuedUnits(){ return G.orders.reduce((s,o)=>s+o.a*o.b, 0); }
+
 function spawnOrder(atP){
-  const f = newFact();
+  // only send orders the ship can still take, counting what's queued —
+  // so nothing is ever left on the belt when the ship sails
+  if (G.scene==='play' && G.fill >= G.capacity) return;
+  const room = G.capacity - G.fill - queuedUnits();
+  let f = newFact(room);
+  if (!f){
+    if (G.orders.length) return;   // queued orders already fill the plan
+    // nothing fits the sliver of space left — send the smallest product
+    // available so the ship can top off (it may overflow to finish)
+    const s = modePairs().reduce((m,p)=>p[0]*p[1]<m[0]*m[1]?p:m);
+    f = Math.random()<0.5 ? {a:s[0],b:s[1]} : {a:s[1],b:s[0]};
+  }
   // avoid repeating the same product as the order just ahead
   for (let tries=0; tries<8; tries++){
     const prev = G.orders[G.orders.length-1];
     if (!prev || prev.a*prev.b !== f.a*f.b) break;
-    const g = newFact(); f.a=g.a; f.b=g.b;
+    const g = newFact(room); if (!g) break;
+    f.a=g.a; f.b=g.b;
   }
   G.orders.push({a:f.a, b:f.b, p:atP!==undefined?atP:-0.05, state:'ride', st:0,
     col:CRATES[ri(0,CRATES.length-1)]});
