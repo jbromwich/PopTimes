@@ -968,18 +968,14 @@ function factCardContent(cw, ch, a, b){
   strip(ch*0.55, a, '#b0693a');
   strip(ch*0.80, b, '#4a7fae');
   function strip(cy, n, col){
-    const u = Math.min(cw*0.78/(n+1.8), base*0.16);
+    // no count label — the equation above already names the factors
+    const u = Math.min(cw*0.82/n, base*0.16);
     const w = n*u;
-    const sx = cw*0.5 - (w + u*1.6)/2;
+    const sx = (cw-w)/2;
     ctx.fillStyle=col;
     for (let i=0;i<n;i++){
       rrect(sx+i*u+0.5, cy-u/2+0.5, u-1, u-1, 2); ctx.fill();
     }
-    ctx.fillStyle=CARDINK;
-    ctx.font='700 '+Math.max(13, Math.round(u*1.1))+'px ui-rounded, system-ui, sans-serif';
-    ctx.textAlign='left';
-    ctx.fillText(n, sx+w+u*0.5, cy+1);
-    ctx.textAlign='center';
   }
 }
 
