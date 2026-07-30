@@ -1030,10 +1030,10 @@ function drawCandidate(c){
     if (reveal) glow(c.gx, c.gy, c.gw, c.gh);
     if (wrongPulse) redX(c.gx, c.gy, c.gw, c.gh, wrongPulse);
   } else {
-    // reverse mode: the answers are fact cards, same shape and
-    // proportions as the conveyor's (just larger), centered in the slot
+    // reverse mode: the answers are fact cards at exactly the
+    // conveyor card's size, centered in the slot (whole slot is tappable)
     const s=c.slot;
-    const cw2=Math.min(s.w, s.h/0.88), ch2=cw2*0.88;
+    const cw2=Math.min(W*0.30, 148, s.w), ch2=Math.min(L.beltH*0.98, cw2*0.88);
     const x0=s.x+(s.w-cw2)/2, y0=s.y+(s.h-ch2)/2;
     ctx.fillStyle='rgba(0,0,0,0.25)';
     rrect(x0+3, y0+4, cw2, ch2, 10); ctx.fill();
