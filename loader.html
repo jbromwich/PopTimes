@@ -895,7 +895,7 @@ function drawOrder(o){
     x = o.ret.fx + (x - o.ret.fx)*k;
     y = o.ret.fy + (y - o.ret.fy)*k;
   }
-  const cw = Math.min(W*0.30, 148), ch = L.beltH*0.98;
+  const cw = Math.min(W*0.30, 148), ch = Math.min(L.beltH*0.98, cw*0.88);
   // wobble near the edge
   const danger = clamp((o.p-0.66)/0.34, 0, 1);
   let tilt = Math.sin(G.t*10+o.a) * 0.10 * danger + (o.p>0.97 ? (o.p-0.97)*8 : 0);
@@ -919,8 +919,10 @@ function drawOrder(o){
   ctx.translate(-cw/2, -ch/2);
 
   if (G.mode==='reverse' && G.scene!=='menu'){
-    // reverse mode: a quantity crate rides the belt
-    const u = Math.min(cw*0.92/o.b, ch*0.74/o.a);
+    // reverse mode: a quantity crate rides the belt — one shared unit
+    // size, so a big product is visibly a bigger crate (unit-truthful,
+    // exactly like the answer-area crates)
+    const u = Math.max(5, Math.floor(L.beltH*0.86/12));
     const gw=o.b*u, gh=o.a*u, gx=(cw-gw)/2, gy=(ch-gh)/2;
     drawCrateGrid(gx, gy, o.a, o.b, u, o.col||CRATES[0]);
     ctx.lineWidth = isFront ? 3.5 : 0;
@@ -1024,20 +1026,23 @@ function drawCandidate(c){
     if (reveal) glow(c.gx, c.gy, c.gw, c.gh);
     if (wrongPulse) redX(c.gx, c.gy, c.gw, c.gh, wrongPulse);
   } else {
-    // reverse mode: the answers are fact cards, same as the conveyor's
+    // reverse mode: the answers are fact cards, same shape and
+    // proportions as the conveyor's (just larger), centered in the slot
     const s=c.slot;
+    const cw2=Math.min(s.w, s.h/0.88), ch2=cw2*0.88;
+    const x0=s.x+(s.w-cw2)/2, y0=s.y+(s.h-ch2)/2;
     ctx.fillStyle='rgba(0,0,0,0.25)';
-    rrect(s.x+3, s.y+4, s.w, s.h, 10); ctx.fill();
+    rrect(x0+3, y0+4, cw2, ch2, 10); ctx.fill();
     ctx.fillStyle=CARD;
-    rrect(s.x, s.y, s.w, s.h, 10); ctx.fill();
+    rrect(x0, y0, cw2, ch2, 10); ctx.fill();
     ctx.strokeStyle=CARDEDGE; ctx.lineWidth=1.5;
-    rrect(s.x, s.y, s.w, s.h, 10); ctx.stroke();
+    rrect(x0, y0, cw2, ch2, 10); ctx.stroke();
     ctx.save();
-    ctx.translate(s.x, s.y);
-    factCardContent(s.w, s.h, c.a, c.b);
+    ctx.translate(x0, y0);
+    factCardContent(cw2, ch2, c.a, c.b);
     ctx.restore();
-    if (reveal) glow(s.x, s.y, s.w, s.h);
-    if (wrongPulse) redX(s.x, s.y, s.w, s.h, wrongPulse);
+    if (reveal) glow(x0, y0, cw2, ch2);
+    if (wrongPulse) redX(x0, y0, cw2, ch2, wrongPulse);
   }
   ctx.restore();
 }
