@@ -892,11 +892,14 @@ function drawOrder(o){
   const isFront = o===G.orders[0] && G.scene==='play';
   const cw = Math.min(W*0.30, 148), ch = Math.min(L.beltH*0.98, cw*0.88);
   const isCrate = G.mode==='reverse' && G.scene!=='menu';
-  const bu = Math.max(5, Math.floor(L.beltH*0.86/12));   // shared belt unit
-  // on the belt, extreme crates lie down (never stand taller than 6:1)
+  // belt unit sized for 8 rows (~1.5x); taller crates lie down instead,
+  // and the rare big squares that are tall either way get clamped to fit
+  const bu = Math.max(5, Math.floor(L.beltH*0.86/8));
+  const maxH = L.beltY - H*0.045;                        // headroom below the HUD
   let cr=o.a, cc2=o.b;
-  if (isCrate && cr/cc2 > 6) [cr,cc2]=[cc2,cr];
-  const objH = isCrate ? cr*bu : ch;                     // object's real height
+  if (isCrate && cr>cc2 && (cr/cc2 > 6 || cr*bu > maxH)) [cr,cc2]=[cc2,cr];
+  const cu = isCrate ? Math.min(bu, maxH/cr) : 0;        // this crate's unit
+  const objH = isCrate ? cr*cu : ch;                     // object's real height
   // objects SIT on the belt: bottom edge rests on the belt surface
   let x = orderX(o), y = L.beltY - 6 - objH/2;
   if (o.ret){                               // flying back from the failed crate
@@ -930,7 +933,7 @@ function drawOrder(o){
     // reverse mode: a quantity crate rides the belt — one shared unit
     // size, so a big product is visibly a bigger crate (unit-truthful,
     // exactly like the answer-area crates)
-    const u = bu;
+    const u = cu;
     const gw=cc2*u, gh=cr*u, gx=(cw-gw)/2, gy=0;
     drawCrateGrid(gx, gy, cr, cc2, u, o.col||CRATES[0]);
     ctx.lineWidth = isFront ? 3.5 : 0;
