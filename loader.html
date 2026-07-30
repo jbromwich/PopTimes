@@ -472,9 +472,6 @@ function startLevel(){
   G.phase='aim';
   spawnOrder(0.10);
   buildRound();
-  G.fx.push({kind:'banner', t:0, dur:2.2,
-    text: G.mode==='multiplying' ? 'Match the crate!' : 'Pick the strips that fit!',
-    sub: 'Level '+(G.level+1)+' · '+(G.tables.length>2?'mixed tables':G.tables.map(t=>'×'+t).join('  '))});
 }
 
 function fulfilOrder(){
@@ -892,9 +889,9 @@ function drawOrder(o){
   const isFront = o===G.orders[0] && G.scene==='play';
   const cw = Math.min(W*0.30, 148), ch = Math.min(L.beltH*0.98, cw*0.88);
   const isProduct = G.mode==='factoring' && G.scene!=='menu';
-  // one shared unit, sized so a 12x12 product exactly fills the headroom
-  // below the HUD — the maximum crate is the maximum available area
-  const cu = Math.max(5, Math.floor((L.beltY - H*0.045)/12));
+  // one shared unit, sized so a 12x12 product fills ~80% of the headroom
+  // below the HUD — the biggest product stays big without crowding
+  const cu = Math.max(5, Math.floor((L.beltY - H*0.045)*0.8/12));
   // products always ride the belt lying flat (stability: freight travels
   // on its largest face); answer-area orientation stays random
   const cr = Math.min(o.a,o.b), cc2 = Math.max(o.a,o.b);
@@ -969,7 +966,11 @@ function drawFactors(cw, ch, a, b){
   const base = Math.min(ch, cw*0.88);
   ctx.fillStyle=CARDINK;
   ctx.textAlign='center'; ctx.textBaseline='middle';
-  ctx.font='700 '+Math.round(base*0.30)+'px ui-rounded, system-ui, sans-serif';
+  // uniform equation size, chosen so the widest case ("12 × 12") fits
+  let fs = base*0.30;
+  ctx.font='700 '+Math.round(fs)+'px ui-rounded, system-ui, sans-serif';
+  fs *= Math.min(1, cw*0.86/ctx.measureText('12 × 12').width);
+  ctx.font='700 '+Math.round(fs)+'px ui-rounded, system-ui, sans-serif';
   ctx.fillText(a+' × '+b, cw/2, ch*0.26);
   strip(ch*0.55, a, '#b0693a');
   strip(ch*0.80, b, '#4a7fae');
