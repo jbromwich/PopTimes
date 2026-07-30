@@ -736,7 +736,8 @@ function update(dt){
     recordFact(front.a, front.b, false, false, 12000);
     G.orders.shift();
     sSplash();
-    G.splashes.push({x:L.edgeX+14, y:L.beltY+30, t:0, a:front.a, b:front.b});
+    G.splashes.push({x:L.edgeX+14, y:L.beltY+30, t:0, a:front.a, b:front.b,
+      crate:G.mode==='reverse', col:front.col||CRATES[0]});
     failOrder(false);
     if (G.scene!=='broken') buildRound();
   }
@@ -892,7 +893,10 @@ function drawOrder(o){
   const cw = Math.min(W*0.30, 148), ch = Math.min(L.beltH*0.98, cw*0.88);
   const isCrate = G.mode==='reverse' && G.scene!=='menu';
   const bu = Math.max(5, Math.floor(L.beltH*0.86/12));   // shared belt unit
-  const objH = isCrate ? o.a*bu : ch;                    // object's real height
+  // on the belt, extreme crates lie down (never stand taller than 6:1)
+  let cr=o.a, cc2=o.b;
+  if (isCrate && cr/cc2 > 6) [cr,cc2]=[cc2,cr];
+  const objH = isCrate ? cr*bu : ch;                     // object's real height
   // objects SIT on the belt: bottom edge rests on the belt surface
   let x = orderX(o), y = L.beltY - 6 - objH/2;
   if (o.ret){                               // flying back from the failed crate
@@ -927,8 +931,8 @@ function drawOrder(o){
     // size, so a big product is visibly a bigger crate (unit-truthful,
     // exactly like the answer-area crates)
     const u = bu;
-    const gw=o.b*u, gh=o.a*u, gx=(cw-gw)/2, gy=0;
-    drawCrateGrid(gx, gy, o.a, o.b, u, o.col||CRATES[0]);
+    const gw=cc2*u, gh=cr*u, gx=(cw-gw)/2, gy=0;
+    drawCrateGrid(gx, gy, cr, cc2, u, o.col||CRATES[0]);
     ctx.lineWidth = isFront ? 3.5 : 0;
     if (isFront){
       ctx.strokeStyle = danger>0.4 ? BAD : '#e8b64c';
@@ -986,12 +990,21 @@ function drawSplashes(){
     ctx.globalAlpha = 1-t;
     ctx.translate(s.x, s.y + t*t*90);
     ctx.rotate(t*2.4);
-    ctx.fillStyle=CARD;
-    rrect(-20,-14,40,28,5); ctx.fill();
-    ctx.fillStyle=CARDINK;
-    ctx.font='700 13px ui-rounded, system-ui, sans-serif';
-    ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.fillText(s.a+'×'+s.b, 0, 0);
+    if (s.crate){
+      // reverse mode: a little crate goes into the sea
+      let r=s.a, c=s.b;
+      if (r>c) [r,c]=[c,r];
+      const u=Math.min(46/c, 32/r);
+      for (let rr=0;rr<r;rr++) for (let cc=0;cc<c;cc++)
+        cell(-c*u/2+cc*u, -r*u/2+rr*u, u, s.col);
+    } else {
+      ctx.fillStyle=CARD;
+      rrect(-20,-14,40,28,5); ctx.fill();
+      ctx.fillStyle=CARDINK;
+      ctx.font='700 13px ui-rounded, system-ui, sans-serif';
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(s.a+'×'+s.b, 0, 0);
+    }
     ctx.restore();
     // droplets
     ctx.fillStyle='rgba(120,200,230,'+(0.7*(1-t))+')';
