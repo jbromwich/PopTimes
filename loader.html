@@ -456,7 +456,7 @@ function startGame(){
   startLevel();
   G.scene='play';
 }
-function startLevel(){
+function startLevel(keepBelt){
   const def = levelDef(G.level);
   G.tables = def.tables;
   G.mode = def.mode;
@@ -468,9 +468,12 @@ function startLevel(){
   // harder modes deal bigger products, so the hold scales up to match
   const capMult = G.pref==='expert' ? 2 : G.pref==='regular' ? 1.6 : 1;
   G.capacity = Math.round((90 + G.level*25) * capMult);
-  G.orders = []; G.parts=[]; G.fx=[]; G.anim=null;
+  G.parts=[]; G.fx=[]; G.anim=null;
   G.phase='aim';
-  spawnOrder(0.10);
+  // between levels the belt keeps rolling: unanswered orders stay and
+  // the next level's orders queue up behind them
+  if (!keepBelt) G.orders = [];
+  if (!G.orders.length) spawnOrder(0.10);
   buildRound();
 }
 
@@ -667,7 +670,7 @@ function update(dt){
     if (G.payT > 3.0){
       G.level++;
       if (G.level > G.best){ G.best=G.level; localStorage.setItem('ml-best', G.best); }
-      startLevel();
+      startLevel(true);
       G.scene='play';
     }
     return;
