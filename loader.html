@@ -136,8 +136,8 @@ if (window.visualViewport) window.visualViewport.addEventListener('resize', resi
 const L = {};              // computed each resize
 function layout(){
   L.beltTop   = H * 0.055;                 // conveyor strip
-  L.beltH     = H * 0.155;
-  L.beltY     = L.beltTop + L.beltH;       // belt surface line
+  L.beltY     = H * 0.275;                 // belt surface line (low enough
+  L.beltH     = L.beltY - L.beltTop;       //  that a 12x12 product fits above)
   L.fieldTop  = L.beltY + H * 0.02;        // playfield
   L.fieldBot  = H * 0.70;
   L.holdTop   = H * 0.72;                  // ship's hold (container)
@@ -197,7 +197,7 @@ const G = {
   scene: 'menu',        // menu | play | payoff
   phase: 'aim',         // aim | tiling | reveal   (within play)
   level: 0,
-  mode: 'forward',      // forward | reverse
+  mode: 'multiplying',       // multiplying | factoring
   tables: [],           // times tables in play this level
   combo: 0,
   pace: 0,              // 0..1 escalation
@@ -258,56 +258,56 @@ function pad(x){ return x<10?'0'+x:''+x; }
 function dayKey(d){ return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
 
 const LEVELS = [
-  {tables:[2],        mode:'forward'},
-  {tables:[3],        mode:'forward'},
-  {tables:[2,3],      mode:'reverse'},
-  {tables:[4],        mode:'forward'},
-  {tables:[2,3,4],    mode:'reverse'},
-  {tables:[5],        mode:'forward'},
-  {tables:[3,4,5],    mode:'forward'},
-  {tables:[4,5],      mode:'reverse'},
-  {tables:[6],        mode:'forward'},
-  {tables:[4,5,6],    mode:'reverse'},
-  {tables:[7],        mode:'forward'},
-  {tables:[5,6,7],    mode:'forward'},
-  {tables:[6,7],      mode:'reverse'},
-  {tables:[8],        mode:'forward'},
-  {tables:[6,7,8],    mode:'reverse'},
-  {tables:[9],        mode:'forward'},
-  {tables:[7,8,9],    mode:'forward'},
-  {tables:[10,11],    mode:'forward'},
-  {tables:[11,12],    mode:'reverse'},
-  {tables:ALLT,       mode:'reverse'},
+  {tables:[2],        mode:'multiplying'},
+  {tables:[3],        mode:'multiplying'},
+  {tables:[2,3],      mode:'factoring'},
+  {tables:[4],        mode:'multiplying'},
+  {tables:[2,3,4],    mode:'factoring'},
+  {tables:[5],        mode:'multiplying'},
+  {tables:[3,4,5],    mode:'multiplying'},
+  {tables:[4,5],      mode:'factoring'},
+  {tables:[6],        mode:'multiplying'},
+  {tables:[4,5,6],    mode:'factoring'},
+  {tables:[7],        mode:'multiplying'},
+  {tables:[5,6,7],    mode:'multiplying'},
+  {tables:[6,7],      mode:'factoring'},
+  {tables:[8],        mode:'multiplying'},
+  {tables:[6,7,8],    mode:'factoring'},
+  {tables:[9],        mode:'multiplying'},
+  {tables:[7,8,9],    mode:'multiplying'},
+  {tables:[10,11],    mode:'multiplying'},
+  {tables:[11,12],    mode:'factoring'},
+  {tables:ALLT,       mode:'factoring'},
 ];
 const BLEVELS = [
-  {tables:[2],           mode:'forward'},
-  {tables:[5],           mode:'forward'},
-  {tables:[2,5],         mode:'reverse'},
-  {tables:[3],           mode:'forward'},
-  {tables:[2,3,5],       mode:'reverse'},
-  {tables:[4],           mode:'forward'},
-  {tables:[3,4],         mode:'forward'},
-  {tables:[10],          mode:'forward'},
-  {tables:EASY,          mode:'reverse'},
+  {tables:[2],           mode:'multiplying'},
+  {tables:[5],           mode:'multiplying'},
+  {tables:[2,5],         mode:'factoring'},
+  {tables:[3],           mode:'multiplying'},
+  {tables:[2,3,5],       mode:'factoring'},
+  {tables:[4],           mode:'multiplying'},
+  {tables:[3,4],         mode:'multiplying'},
+  {tables:[10],          mode:'multiplying'},
+  {tables:EASY,          mode:'factoring'},
 ];
 const XLEVELS = [
-  {tables:[6],           mode:'forward'},
-  {tables:[7],           mode:'forward'},
-  {tables:[6,7],         mode:'reverse'},
-  {tables:[8],           mode:'forward'},
-  {tables:[6,7,8],       mode:'reverse'},
-  {tables:[9],           mode:'forward'},
-  {tables:[8,9],         mode:'forward'},
-  {tables:[7,8,9],       mode:'reverse'},
-  {tables:[12],          mode:'forward'},
-  {tables:[9,12],        mode:'reverse'},
-  {tables:[3,4,12],      mode:'forward'},
-  {tables:TRICKY,        mode:'reverse'},
+  {tables:[6],           mode:'multiplying'},
+  {tables:[7],           mode:'multiplying'},
+  {tables:[6,7],         mode:'factoring'},
+  {tables:[8],           mode:'multiplying'},
+  {tables:[6,7,8],       mode:'factoring'},
+  {tables:[9],           mode:'multiplying'},
+  {tables:[8,9],         mode:'multiplying'},
+  {tables:[7,8,9],       mode:'factoring'},
+  {tables:[12],          mode:'multiplying'},
+  {tables:[9,12],        mode:'factoring'},
+  {tables:[3,4,12],      mode:'multiplying'},
+  {tables:TRICKY,        mode:'factoring'},
 ];
 function levelDef(n){
   const list = G.pref==='expert' ? XLEVELS : G.pref==='beginner' ? BLEVELS : LEVELS;
   if (n < list.length) return list[n];
-  return {tables: [...new Set(modePairs().flat())], mode: n%2 ? 'reverse' : 'forward'};
+  return {tables: [...new Set(modePairs().flat())], mode: n%2 ? 'factoring' : 'multiplying'};
 }
 function factorMax(){ return 12; }
 
@@ -402,7 +402,7 @@ function buildRound(){
     slots.push({x:cx,y:cy,w:sw,h:sh});
   }
 
-  if (G.mode==='forward'){
+  if (G.mode==='multiplying'){
     // one shared unit size so shapes compare honestly
     let u = 1e9;
     const dims = facts.map(f=>{
@@ -425,7 +425,7 @@ function buildRound(){
     });
     shuffleColours();
   } else {
-    // reverse: candidates are factor-strip pairs
+    // factoring: candidates are factor-strip pairs
     let u = 1e9;
     facts.forEach((f,i)=>{
       const s=slots[i];
@@ -473,7 +473,7 @@ function startLevel(){
   spawnOrder(0.10);
   buildRound();
   G.fx.push({kind:'banner', t:0, dur:2.2,
-    text: G.mode==='forward' ? 'Match the crate!' : 'Pick the strips that fit!',
+    text: G.mode==='multiplying' ? 'Match the crate!' : 'Pick the strips that fit!',
     sub: 'Level '+(G.level+1)+' · '+(G.tables.length>2?'mixed tables':G.tables.map(t=>'×'+t).join('  '))});
 }
 
@@ -535,7 +535,7 @@ function tapCandidate(c){
   G.tapMs = performance.now() - (G.roundT0||performance.now());
   G.tapQuick = o.p < 0.45;
 
-  if (G.mode==='forward'){
+  if (G.mode==='multiplying'){
     // orient the order's strips to the chosen crate
     let tr=o.a, tc=o.b;
     if (c.rows!==tr || c.cols!==tc){
@@ -550,7 +550,7 @@ function tapCandidate(c){
       fly:0.35, lay:0.30,
       dur: 0.30 + Math.min(0.9, tr*tc*0.02)};
   } else {
-    // reverse: prove on a pop-up tray sized to the order (a×b)
+    // factoring: prove on a pop-up tray sized to the order (a×b)
     const tr=o.a, tc=o.b;
     const maxW=W*0.66, maxH=(L.fieldBot-L.fieldTop)*0.6;
     const u = clamp(Math.floor(Math.min(maxW/tc, maxH/tr)), 8, 34);
@@ -737,7 +737,7 @@ function update(dt){
     G.orders.shift();
     sSplash();
     G.splashes.push({x:L.edgeX+14, y:L.beltY+30, t:0, a:front.a, b:front.b,
-      crate:G.mode==='reverse', col:front.col||CRATES[0]});
+      crate:G.mode==='factoring', col:front.col||CRATES[0]});
     failOrder(false);
     if (G.scene!=='broken') buildRound();
   }
@@ -891,15 +891,14 @@ function drawOrder(o){
   if (o.state==='held' && !o.ret) return;   // being drawn by the proof animation
   const isFront = o===G.orders[0] && G.scene==='play';
   const cw = Math.min(W*0.30, 148), ch = Math.min(L.beltH*0.98, cw*0.88);
-  const isCrate = G.mode==='reverse' && G.scene!=='menu';
-  // belt unit sized for 8 rows (~1.5x); taller crates lie down instead,
-  // and the rare big squares that are tall either way get clamped to fit
-  const bu = Math.max(5, Math.floor(L.beltH*0.86/8));
-  const maxH = L.beltY - H*0.045;                        // headroom below the HUD
-  let cr=o.a, cc2=o.b;
-  if (isCrate && cr>cc2 && (cr/cc2 > 6 || cr*bu > maxH)) [cr,cc2]=[cc2,cr];
-  const cu = isCrate ? Math.min(bu, maxH/cr) : 0;        // this crate's unit
-  const objH = isCrate ? cr*cu : ch;                     // object's real height
+  const isProduct = G.mode==='factoring' && G.scene!=='menu';
+  // one shared unit, sized so a 12x12 product exactly fills the headroom
+  // below the HUD — the maximum crate is the maximum available area
+  const cu = Math.max(5, Math.floor((L.beltY - H*0.045)/12));
+  // products always ride the belt lying flat (stability: freight travels
+  // on its largest face); answer-area orientation stays random
+  const cr = Math.min(o.a,o.b), cc2 = Math.max(o.a,o.b);
+  const objH = isProduct ? cr*cu : ch;                   // object's real height
   // objects SIT on the belt: bottom edge rests on the belt surface
   let x = orderX(o), y = L.beltY - 6 - objH/2;
   if (o.ret){                               // flying back from the failed crate
@@ -929,8 +928,8 @@ function drawOrder(o){
   ctx.rotate(tilt);
   ctx.translate(-cw/2, -objH/2);
 
-  if (isCrate){
-    // reverse mode: a quantity crate rides the belt — one shared unit
+  if (isProduct){
+    // factoring mode: a quantity crate rides the belt — one shared unit
     // size, so a big product is visibly a bigger crate (unit-truthful,
     // exactly like the answer-area crates)
     const u = cu;
@@ -959,14 +958,14 @@ function drawOrder(o){
     ctx.lineWidth=isFront?3:1.5;
     ctx.strokeStyle = isFront ? (danger>0.4 ? BAD : '#e8b64c') : CARDEDGE;
     rrect(0,0,cw,ch,10); ctx.stroke();
-    factCardContent(cw, ch, o.a, o.b);
+    drawFactors(cw, ch, o.a, o.b);
   }
   ctx.restore();
 }
 
 /* the fact card's face: "a × b" over its two labeled factor strips —
    identical wherever the card appears (conveyor or answer area) */
-function factCardContent(cw, ch, a, b){
+function drawFactors(cw, ch, a, b){
   const base = Math.min(ch, cw*0.88);
   ctx.fillStyle=CARDINK;
   ctx.textAlign='center'; ctx.textBaseline='middle';
@@ -994,7 +993,7 @@ function drawSplashes(){
     ctx.translate(s.x, s.y + t*t*90);
     ctx.rotate(t*2.4);
     if (s.crate){
-      // reverse mode: a little crate goes into the sea
+      // factoring mode: a little crate goes into the sea
       let r=s.a, c=s.b;
       if (r>c) [r,c]=[c,r];
       const u=Math.min(46/c, 32/r);
@@ -1028,7 +1027,7 @@ function drawCandidate(c){
   const cx = c.slot.x + c.slot.w/2, cy = c.slot.y + c.slot.h/2;
   ctx.translate(cx, cy); ctx.scale(pop, pop); ctx.translate(-cx, -cy);
 
-  if (G.mode==='forward'){
+  if (G.mode==='multiplying'){
     drawCrateGrid(c.gx, c.gy, c.rows, c.cols, G.unit, c.col);
     // product label — one size for every crate, allowed to bleed past small ones
     const label = ''+(c.a*c.b);
@@ -1042,7 +1041,7 @@ function drawCandidate(c){
     if (reveal) glow(c.gx, c.gy, c.gw, c.gh);
     if (wrongPulse) redX(c.gx, c.gy, c.gw, c.gh, wrongPulse);
   } else {
-    // reverse mode: the answers are fact cards at exactly the
+    // factoring mode: the answers are fact cards at exactly the
     // conveyor card's size, centered in the slot (whole slot is tappable)
     const s=c.slot;
     const cw2=Math.min(W*0.30, 148, s.w), ch2=Math.min(L.beltH*0.98, cw2*0.88);
@@ -1055,7 +1054,7 @@ function drawCandidate(c){
     rrect(x0, y0, cw2, ch2, 10); ctx.stroke();
     ctx.save();
     ctx.translate(x0, y0);
-    factCardContent(cw2, ch2, c.a, c.b);
+    drawFactors(cw2, ch2, c.a, c.b);
     ctx.restore();
     if (reveal) glow(x0, y0, cw2, ch2);
     if (wrongPulse) redX(x0, y0, cw2, ch2, wrongPulse);
@@ -1105,7 +1104,7 @@ function drawTiling(A){
   ctx.globalAlpha = alpha;
 
   if (A.tray){
-    // pop-up tray backdrop for reverse mode
+    // pop-up tray backdrop for factoring mode
     ctx.fillStyle='rgba(6,14,20,0.55)';
     ctx.fillRect(0, L.fieldTop-6, W, L.fieldBot-L.fieldTop+12);
     ctx.fillStyle='#e2d4b4';
@@ -1404,7 +1403,7 @@ function drawMenu(){
     o.p += 0.00045; if (o.p>1.04) { o.p=-0.15; o.a=ri(2,9); o.b=ri(2,9); }
   }
   G.orders = []; // ensure none linger
-  const saveMode = G.mode; G.mode='forward';
+  const saveMode = G.mode; G.mode='multiplying';
   for (const o of menuOrders) drawOrder(o);
   G.mode = saveMode;
 
