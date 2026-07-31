@@ -121,7 +121,7 @@ function chrome(showQuit,showChart){
 
 /* ---------- a test = one ladder level ---------- */
 function startRun(){
-  level=Math.max(0,(BESTS[mode]||0)-2);
+  level=BESTS[mode]||0;   /* resume at the next uncleared level */
   startTest();
 }
 function startTest(){

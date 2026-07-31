@@ -312,8 +312,8 @@ function shuffleColours(){
    FLOW
    ================================================================ */
 function startGame(){
-  // start near this skill level's best so runs reach new material
-  G.level = Math.max(0, (BESTS[G.pref]||0) - 2);
+  // a cleared level stays cleared: play resumes at the next one
+  G.level = BESTS[G.pref]||0;
   G.recent = [];
   startLevel();
   G.scene='play';
