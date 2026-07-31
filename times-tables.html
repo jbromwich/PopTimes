@@ -181,6 +181,7 @@ function pick(v,btn,timedOut){
   if(lock)return;lock=true;clearTimeout(tick);
   var ok=!timedOut&&v===ans;
   var wasQuick=ok&&!dropped;   /* quick = answered before options started dropping */
+  audio(); if(ok)sGood();else sWrong();
   recordOutcome(a,b, ok?(wasQuick?'q':'c'):'w');
   if(ok){
     c++;if(wasQuick)qc++;streak++;noteStreak(streak);consecW=0;
@@ -203,6 +204,7 @@ function finish(){
   var brokeDown=consecW>=3;
   var need=Math.round(0.9*N);
   var passed=!brokeDown&&c>=need;
+  if(passed)sWin();
   noteLevelResult(
     {d:dayKey(new Date()),c:c,n:Math.max(1,idx),q:qc,lv:level+1,m:mode},
     passed?{dur:Date.now()-testT0}:undefined);
@@ -253,11 +255,15 @@ function finish(){
 }
 function bigBtn(label,fn){
   var btn=document.createElement('button');
-  btn.textContent=label;btn.addEventListener('click',fn);return btn;
+  btn.textContent=label;
+  btn.addEventListener('click',function(){audio();sTap();fn();});
+  return btn;
 }
 function linkBtn(label,fn){
   var btn=document.createElement('button');
-  btn.className='link';btn.textContent=label;btn.addEventListener('click',fn);return btn;
+  btn.className='link';btn.textContent=label;
+  btn.addEventListener('click',function(){audio();sTap();fn();});
+  return btn;
 }
 function welcome(){
   clearTimeout(tick);lock=true;

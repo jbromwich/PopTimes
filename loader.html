@@ -104,27 +104,6 @@ function layout(){
   L.edgeX     = W - W * 0.06;              // dock edge — orders fall here
 }
 
-/* ---------- tiny audio ---------- */
-let AC = null;
-function audio(){ if (!AC) { try { AC = new (window.AudioContext||window.webkitAudioContext)(); } catch(e){} } if (AC && AC.state==='suspended') AC.resume(); }
-function beep(freq, dur, type, vol, when){
-  if (!AC) return;
-  const t = AC.currentTime + (when||0);
-  const o = AC.createOscillator(), g = AC.createGain();
-  o.type = type||'sine'; o.frequency.setValueAtTime(freq, t);
-  g.gain.setValueAtTime(0, t);
-  g.gain.linearRampToValueAtTime(vol||0.12, t+0.01);
-  g.gain.exponentialRampToValueAtTime(0.0001, t+dur);
-  o.connect(g); g.connect(AC.destination);
-  o.start(t); o.stop(t+dur+0.05);
-}
-const sTap    = () => beep(660, 0.06, 'triangle', 0.08);
-const sGood   = () => { beep(523,0.09,'triangle',0.12); beep(659,0.09,'triangle',0.12,0.07); beep(784,0.14,'triangle',0.12,0.14); };
-const sWrong  = () => { beep(196,0.25,'sawtooth',0.07); beep(185,0.25,'sawtooth',0.06,0.05); };
-const sPour   = () => { for(let i=0;i<6;i++) beep(300+Math.random()*500, 0.05, 'triangle', 0.03, i*0.05); };
-const sSplash = () => beep(140,0.4,'sine',0.1);
-const sSail   = () => { beep(392,0.2,'triangle',0.1); beep(494,0.2,'triangle',0.1,0.15); beep(587,0.35,'triangle',0.12,0.3); };
-
 /* ---------- colours ---------- */
 const SKY1='#0e2233', SKY2='#183a52', SEA='#0a4a63', SEA2='#0c5b78';
 const BELT='#233240', BELT2='#2d4152', BELTLINE='#3d5568';
@@ -199,6 +178,8 @@ function newFact(maxP){
 function recordFact(a,b,res){
   recordOutcome(a,b,res);
   G.lvlN++; if(res!=='w')G.lvlC++; if(res==='q')G.lvlQ++;
+  if (res==='w' && !(G.lvlLog||[]).some(m=>m.k===fkey(a,b)))
+    (G.lvlLog=G.lvlLog||[]).push({k:fkey(a,b), a, b});
 }
 
 function queuedUnits(){ return G.orders.reduce((s,o)=>s+o.a*o.b, 0); }
@@ -327,6 +308,7 @@ function startLevel(keepBelt){
   G.pace = paceFloor();
   G.fill = 0; G.fillShown = 0;
   G.lvlN = 0; G.lvlC = 0; G.lvlQ = 0;
+  G.lvlLog = [];   // facts missed this level, for the completion recap
   G.lvlT0 = performance.now();
   // harder modes deal bigger products, so the hold scales up to match
   const capMult = G.pref==='expert' ? 2 : G.pref==='regular' ? 1.6 : 1;
@@ -532,11 +514,12 @@ function update(dt){
     if (G.payT > 3.0){
       G.level++;
       if (G.level > (BESTS[G.pref]||0)){ BESTS[G.pref] = G.level; saveBest(G.pref); }
-      startLevel(true);
-      G.scene='play';
+      G.scene='complete';   // rest point: waits for a tap
+      sWin();
     }
     return;
   }
+  if (G.scene==='complete') return;   // belt stays frozen until Next level
   if (G.scene!=='play') return;
 
   // hold full → payoff (wait for pour to finish)
@@ -674,7 +657,53 @@ function draw(){
   drawFx();
   if (G.scene==='payoff') drawPayoff();
   if (G.scene==='broken') drawBroken();
+  if (G.scene==='complete') drawComplete();
   ctx.restore();
+}
+
+function drawComplete(){
+  // the completed level's numbers are still in G.lvl* (next level not started)
+  const missed = (G.lvlLog||[]).slice(0,4);
+  const rows = missed.length ? missed.length+1 : 1;
+  const ph = 208 + rows*26;
+  const y0 = H*0.42 - ph/2;
+  ctx.fillStyle='rgba(8,16,24,0.85)';
+  rrect(W*0.07, y0, W*0.86, ph, 14); ctx.fill();
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillStyle='#6cb043';
+  ctx.font='800 '+Math.round(clamp(W*0.07,22,34))+'px ui-rounded, system-ui, sans-serif';
+  ctx.fillText('Level '+G.level+' complete!', W/2, y0+38);
+  ctx.fillStyle=INK;
+  ctx.font='600 '+Math.round(clamp(W*0.042,14,19))+'px ui-rounded, system-ui, sans-serif';
+  ctx.fillText(G.lvlC+' of '+Math.max(1,G.lvlN)+' correct · '+G.lvlQ+' quick', W/2, y0+74);
+  let ly = y0+104;
+  if (missed.length){
+    ctx.fillStyle=DIM;
+    ctx.fillText('Keep working on these:', W/2, ly); ly+=27;
+    ctx.fillStyle=INK;
+    for (const m of missed){ ctx.fillText(m.a+' × '+m.b+' = '+(m.a*m.b), W/2, ly); ly+=26; }
+  } else {
+    ctx.fillStyle='#6cb043';
+    ctx.fillText('Nothing missed this level', W/2, ly); ly+=27;
+  }
+  // Next level button
+  const bw=clamp(W*0.5,170,240), bh=clamp(H*0.056,42,52);
+  const bx=(W-bw)/2, by=ly+14;
+  G.compNext={x:bx,y:by,w:bw,h:bh};
+  ctx.fillStyle='#2f8f5b';
+  rrect(bx,by,bw,bh,bh/2); ctx.fill();
+  ctx.fillStyle='#fff';
+  ctx.font='800 '+Math.round(bh*0.42)+'px ui-rounded, system-ui, sans-serif';
+  ctx.fillText('Next level', W/2, by+bh/2+1);
+  // progress link
+  const lyy=by+bh+28;
+  ctx.fillStyle=DIM;
+  ctx.font='600 '+Math.round(clamp(W*0.04,14,17))+'px ui-rounded, system-ui, sans-serif';
+  const lbl='See your progress';
+  ctx.fillText(lbl, W/2, lyy);
+  const lw2=ctx.measureText(lbl).width;
+  ctx.fillRect(W/2-lw2/2, lyy+10, lw2, 1);
+  G.compProg={x:W/2-lw2/2-14, y:lyy-16, w:lw2+28, h:34};
 }
 
 function drawBroken(){
@@ -1372,6 +1401,11 @@ cvs.addEventListener('pointerdown', e=>{
   }
   if (G.scene==='broken'){
     if (G.brkT > 0.8){ sTap(); dismissBreakdown(); }   // let the snap play first
+    return;
+  }
+  if (G.scene==='complete'){
+    if (hit(G.compProg)){ sTap(); showProgress(); return; }   // closing it returns here
+    if (hit(G.compNext)){ sTap(); startLevel(true); G.scene='play'; }
     return;
   }
   if (G.scene!=='play' || G.phase!=='aim') return;

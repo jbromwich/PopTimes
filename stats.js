@@ -4,6 +4,31 @@
    ================================================================ */
 'use strict';
 
+/* ---------- tiny shared audio (WebAudio, initialized on first tap) ---------- */
+let AC = null;
+function audio(){ if (!AC) { try { AC = new (window.AudioContext||window.webkitAudioContext)(); } catch(e){} } if (AC && AC.state==='suspended') AC.resume(); }
+function beep(freq, dur, type, vol, when){
+  if (!AC) return;
+  const t = AC.currentTime + (when||0);
+  const o = AC.createOscillator(), g = AC.createGain();
+  o.type = type||'sine'; o.frequency.setValueAtTime(freq, t);
+  g.gain.setValueAtTime(0, t);
+  g.gain.linearRampToValueAtTime(vol||0.12, t+0.01);
+  g.gain.exponentialRampToValueAtTime(0.0001, t+dur);
+  o.connect(g); g.connect(AC.destination);
+  o.start(t); o.stop(t+dur+0.05);
+}
+const sTap    = () => beep(660, 0.06, 'triangle', 0.08);
+const sGood   = () => { beep(523,0.09,'triangle',0.12); beep(659,0.09,'triangle',0.12,0.07); beep(784,0.14,'triangle',0.12,0.14); };
+const sWrong  = () => { beep(196,0.25,'sawtooth',0.07); beep(185,0.25,'sawtooth',0.06,0.05); };
+const sPour   = () => { for(let i=0;i<6;i++) beep(300+Math.random()*500, 0.05, 'triangle', 0.03, i*0.05); };
+const sSplash = () => beep(140,0.4,'sine',0.1);
+const sSail   = () => { beep(392,0.2,'triangle',0.1); beep(494,0.2,'triangle',0.1,0.15); beep(587,0.35,'triangle',0.12,0.3); };
+
+const sWin = () => {   // brief level-complete fanfare
+  [523,659,784,1047].forEach((f,i)=>beep(f, i===3?0.30:0.10, 'triangle', 0.13, i*0.09));
+};
+
 /* small helpers (self-contained) */
 function _clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 function pad(x){ return x<10?'0'+x:''+x; }
