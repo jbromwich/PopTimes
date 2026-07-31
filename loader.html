@@ -45,12 +45,43 @@ canvas{display:block;width:100vw;height:100vh;height:100dvh}
 #pg .top h1{font-size:15px;font-weight:600;color:var(--muted);margin:0}
 #pg .top button{font-family:inherit;font-size:22px;line-height:1;background:none;border:none;color:var(--muted);cursor:pointer;padding:4px 8px}
 #pg button.link{font-family:inherit;border:none;background:none;color:var(--muted);font-size:15px;text-decoration:underline;padding:8px;cursor:pointer}
-.pg-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding-bottom:20px;border-bottom:1px solid var(--line)}
+.pg-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.pg-stats.two{grid-template-columns:repeat(2,1fr)}
+.pg-sec.first{padding-top:4px}
+.pg-journey{display:flex;align-items:center;gap:12px;margin-bottom:13px}
+.pg-journey .jl{width:72px;font-size:14px;color:var(--ink)}
+.pg-journey .mt{flex:1}
+.pg-journey .jv{width:52px;text-align:right;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.pg-journey .jv.done{color:#8ad69c;font-size:17px}
+.pg-badges{display:grid;grid-template-columns:repeat(3,1fr);gap:16px 10px}
+.pg-badge{text-align:center}
+.pg-badge .med{
+  width:62px;height:62px;margin:0 auto 7px;border-radius:50%;position:relative;
+  background:rgba(232,182,76,0.15);border:3px solid #e8b64c;
+  display:flex;align-items:center;justify-content:center;
+}
+.pg-badge .med svg{width:30px;height:30px;fill:#e8b64c}
+.pg-badge .med .tn{
+  position:absolute;bottom:-6px;right:-4px;background:#e8b64c;color:#1a1408;
+  font-size:11px;font-weight:800;border-radius:999px;padding:1px 6px;
+  font-variant-numeric:tabular-nums;
+}
+.pg-badge.locked .med{background:rgba(238,244,248,0.05);border:2px dashed var(--line)}
+.pg-badge.locked .med svg{fill:#4a5765}
+.pg-badge.locked .med .tn{background:var(--line);color:var(--muted)}
+.pg-badge .bn{font-size:11px;color:var(--ink);line-height:1.25;min-height:27px}
+.pg-badge.locked .bn{color:var(--muted)}
+.pg-badge .bp{height:5px;border-radius:3px;background:var(--line);overflow:hidden;margin:5px 8px 3px}
+.pg-badge .bp i{display:block;height:100%;border-radius:3px;background:#e8b64c}
+.pg-badge .bl{font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums}
+.pg-badge .bl.done{color:#8ad69c}
+.pg-pills{display:flex;gap:5px;flex:1;justify-content:center}
+.pg-pills i{width:26px;height:9px;border-radius:5px;display:block}
 .pg-meters{display:flex;flex-direction:column;gap:15px}
 .pg-meter .mh{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;color:var(--muted);margin-bottom:7px}
 .pg-meter .mh b{font-weight:400;font-size:18px;color:var(--ink);font-variant-numeric:tabular-nums}
-.pg-meter .mt{height:10px;border-radius:5px;background:var(--line);overflow:hidden}
-.pg-meter .mt i{display:block;height:100%;border-radius:5px}
+.pg-meter .mt,.pg-journey .mt{height:10px;border-radius:5px;background:var(--line);overflow:hidden}
+.pg-meter .mt i,.pg-journey .mt i{display:block;height:100%;border-radius:5px}
 .pg-keys{display:flex;gap:18px;margin-top:12px;font-size:12px;color:var(--muted);flex-wrap:wrap}
 .pg-keys>span{display:flex;align-items:center;gap:6px}
 .pg-keys i{width:14px;height:3px;border-radius:2px;display:block}
@@ -65,9 +96,10 @@ canvas{display:block;width:100vw;height:100vh;height:100dvh}
 .pg-grid .ax{display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums}
 .pg-grid .cell{aspect-ratio:1;border-radius:3px}
 .pg-grid .cell.off{border:1px dashed var(--line);background:transparent}
+.pg-grid .cell.band{box-shadow:0 0 0 1.5px rgba(138,214,156,0.55)}
+.pg-grid .ax.axdone{background:#8ad69c;color:#15311e;border-radius:4px;font-weight:700}
 .pg-note{margin-top:14px;font-size:14px;color:var(--ink);line-height:1.5}
 .pg-legend{margin-top:12px;display:flex;align-items:center;gap:10px;font-size:10px;color:var(--muted);letter-spacing:.05em;text-transform:uppercase}
-.pg-ramp{height:7px;flex:1;border-radius:4px;background:linear-gradient(90deg,var(--m0),var(--m50),var(--m100))}
 .pg-key{display:flex;align-items:center;gap:5px;font-size:11px;margin-top:10px;color:var(--muted)}
 .pg-key i{width:11px;height:11px;border-radius:3px;border:1px dashed var(--line);display:block}
 .pg-chart{width:100%;overflow-x:auto}
@@ -212,7 +244,7 @@ const G = {
   beltScroll: 0,
   shake: 0,
   payT: 0,
-  best: +(localStorage.getItem('ml-best')||0),
+  bests: {beginner:0, regular:0, expert:0},   // filled by loadBests() at boot
   pref: (m=>['beginner','regular','expert'].includes(m)?m:'regular')(localStorage.getItem('ml-mode')),
   lvlN: 0, lvlC: 0, lvlQ: 0,   // this level's answers: total / correct / quick
   t: 0,
@@ -241,18 +273,98 @@ const BEGPAIRS = (()=>{
 })();
 function modePairs(){ return G.pref==='expert' ? EXPAIRS : G.pref==='beginner' ? BEGPAIRS : ALLPAIRS; }
 
-/* ---------- persistent stats (mirrors the quiz's shape) ---------- */
-const SKEY = 'ml-stats-v1';
+/* ---------- persistent stats ----------
+   Per fact we keep only the last WIN attempts, as a string of outcomes:
+   'q' = correct & quick (answered before the wobble), 'c' = correct but
+   slow, 'w' = wrong or lost. Mastery is judged on this window alone, so
+   early failures never haunt a fact. */
+const SKEY = 'ml-stats-v2';
+const WIN = 10;          // window size
+const MASTER_MIN = 6;    // attempts needed before "mastered" is reachable
+const MASTER_RATE = 5/6; // quick share required (5/6, 6/7, 7/8, 8/9, 9/10)
 const MAXHIST = 200;
-let ST = {f:{}, h:[]};
-function loadStats(){ try{ const r=localStorage.getItem(SKEY); if(r){ const o=JSON.parse(r); ST.f=o.f||{}; ST.h=o.h||[]; } }catch(e){} }
+let ST = {f:{}, h:[], rec:{streak:0, fast:0, days:0}};
+function loadStats(){
+  try{
+    const r = localStorage.getItem(SKEY);
+    if (r){
+      const o = JSON.parse(r);
+      ST.f = o.f||{}; ST.h = o.h||[];
+      ST.rec = Object.assign({streak:0, fast:0, days:0}, o.rec);
+      return;
+    }
+    // migrate v1 lifetime counters: seed each window proportionally
+    const v1 = localStorage.getItem('ml-stats-v1');
+    if (v1){
+      const o = JSON.parse(v1);
+      for (const k in (o.f||{})){
+        const s = o.f[k];
+        if (!s || !s.n) continue;
+        const m = Math.min(s.n, WIN);
+        let qk = Math.round((s.q||0)/s.n*m);
+        let wr = Math.min(m-qk, Math.round((s.w||0)/s.n*m));
+        ST.f[k] = {h:'q'.repeat(qk)+'c'.repeat(m-qk-wr)+'w'.repeat(wr)};
+      }
+      ST.h = o.h||[];
+      saveStats();
+      localStorage.removeItem('ml-stats-v1');
+    }
+  }catch(e){ ST = {f:{}, h:[], rec:{streak:0, fast:0, days:0}}; }
+}
 function saveStats(){ try{ localStorage.setItem(SKEY, JSON.stringify(ST)); }catch(e){} }
 function fkey(a,b){ return Math.min(a,b)+'x'+Math.max(a,b); }
-function recordFact(a,b,ok,quick,ms){
-  const k=fkey(a,b), s=ST.f[k]||(ST.f[k]={t:0,n:0,w:0,q:0});
-  s.n++; s.t+=clamp(ms||8000, 300, 15000); if(!ok)s.w++; if(ok&&quick)s.q++;
-  G.lvlN++; if(ok)G.lvlC++; if(ok&&quick)G.lvlQ++;
+function recordFact(a,b,res){   // res: 'q' | 'c' | 'w'
+  const k=fkey(a,b), s=ST.f[k]||(ST.f[k]={h:''});
+  s.h = (s.h + res).slice(-WIN);
+  G.lvlN++; if(res!=='w')G.lvlC++; if(res==='q')G.lvlQ++;
   saveStats();
+}
+// window summary and the agreed tier grid:
+// 0 = never asked, 1 < 1/3 quick, 2 < 2/3, 3 < 5/6 (or too few attempts),
+// 4 = mastered (>= 5/6 quick over >= 6 attempts)
+function factWin(a,b){
+  const s = ST.f[fkey(a,b)];
+  const h = s ? s.h : '';
+  let qk=0; for (const ch of h) if (ch==='q') qk++;
+  return {m:h.length, qk};
+}
+function tierOf(a,b){
+  const {m,qk} = factWin(a,b);
+  if (!m) return 0;
+  const r = qk/m;
+  if (m>=MASTER_MIN && r>=MASTER_RATE) return 4;
+  if (r < 1/3) return 1;
+  if (r < 2/3) return 2;
+  return 3;
+}
+function masteredCount(){
+  let n=0;
+  for (const p of ALLPAIRS) if (tierOf(p[0],p[1])===4) n++;
+  return n;
+}
+function seenCount(){
+  let n=0;
+  for (const p of ALLPAIRS) if (factWin(p[0],p[1]).m) n++;
+  return n;
+}
+/* per-skill ladder progress (levels completed on each mode's ladder) */
+const LADDER_LEN = {beginner:9, regular:20, expert:12};
+function loadBests(){
+  const out={};
+  for (const m of ['beginner','regular','expert'])
+    out[m] = +(localStorage.getItem('ml-best-'+m)||0);
+  // migrate the old shared best into regular
+  const old = +(localStorage.getItem('ml-best')||0);
+  if (old && !out.regular){
+    out.regular = old;
+    try{ localStorage.setItem('ml-best-regular', old); }catch(e){}
+  }
+  try{ localStorage.removeItem('ml-best'); }catch(e){}
+  return out;
+}
+function bestFor(){ return G.bests[G.pref]||0; }
+function saveBest(){
+  try{ localStorage.setItem('ml-best-'+G.pref, G.bests[G.pref]); }catch(e){}
 }
 function pad(x){ return x<10?'0'+x:''+x; }
 function dayKey(d){ return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
@@ -323,14 +435,20 @@ const MISS_LIMIT = 3;   // misses in a row break the conveyor
    ================================================================ */
 // weakness-weighted fact picking, same formula as the quiz:
 // never-asked facts come first, then slow and often-missed ones
+// tier-weighted selection: unseen facts come first; then practice
+// concentrates on unmastered facts, while mastered ones still resurface
+// occasionally so rusty facts can honestly lose their mastery
 function weightOf(a,b){
-  const s = ST.f[fkey(a,b)];
-  if (!s || !s.n) return 8;
-  return Math.max(0.5, Math.min(20, (s.t/s.n/1000)*(1+2*(s.w/s.n))));
+  const t = tierOf(a,b);
+  if (t===0) return 10;                 // unseen (also prioritized below)
+  if (t===4) return 0.5;                // mastered: retention checks only
+  let w = t===1 ? 8 : t===2 ? 5 : 4;
+  if (factWin(a,b).m < MASTER_MIN) w *= 1.3;   // needs attempts to qualify
+  return w;
 }
 function newFact(maxP){
   // most orders drill this level's focus tables, but a share roams the
-  // whole mode list (weakness-weighted) so every fact gets asked eventually
+  // whole mode list so every fact gets asked eventually
   let pool = modePairs();
   if (maxP!=null){
     pool = pool.filter(p=>p[0]*p[1]<=maxP);
@@ -342,14 +460,9 @@ function newFact(maxP){
   }
   const fresh = pool.filter(p=>!(G.recent||[]).includes(fkey(p[0],p[1])));
   let src = fresh.length ? fresh : pool;
-  // coverage first: 70% of picks cycle through the least-asked facts, so
-  // every fact in the set gets seen and counts stay even; the other 30%
-  // are struggle-weighted practice across the whole pool
-  if (Math.random() >= 0.3){
-    const counts = src.map(p=>{ const s=ST.f[fkey(p[0],p[1])]; return s?s.n:0; });
-    const minN = Math.min(...counts);
-    src = src.filter((p,i)=>counts[i]===minN);
-  }
+  // absolute coverage guarantee: never-asked facts always go first
+  const unseen = src.filter(p=>tierOf(p[0],p[1])===0);
+  if (unseen.length) src = unseen;
   const w = src.map(p=>weightOf(p[0],p[1]));
   let r = Math.random()*w.reduce((x,y)=>x+y,0), f = src[0];
   for (let i=0;i<src.length;i++){ r-=w[i]; if(r<=0){ f=src[i]; break; } }
@@ -405,7 +518,6 @@ function nearMisses(a,b){
 function buildRound(){
   const o = G.orders[0];
   G.roundFor = o || null;
-  G.roundT0 = performance.now();
   if (!o){ G.cands=[]; return; }
   const n = 4;
   const miss = nearMisses(o.a,o.b).slice(0,n-1);
@@ -468,8 +580,8 @@ function shuffleColours(){
    FLOW
    ================================================================ */
 function startGame(){
-  // start near your best so runs reach new material instead of re-grinding
-  G.level = Math.max(0, G.best - 2);
+  // start near this skill level's best so runs reach new material
+  G.level = Math.max(0, bestFor() - 2);
   G.recent = [];
   startLevel();
   G.scene='play';
@@ -483,6 +595,7 @@ function startLevel(keepBelt){
   G.pace = paceFloor();
   G.fill = 0; G.fillShown = 0;
   G.lvlN = 0; G.lvlC = 0; G.lvlQ = 0;
+  G.lvlT0 = performance.now();
   // harder modes deal bigger products, so the hold scales up to match
   const capMult = G.pref==='expert' ? 2 : G.pref==='regular' ? 1.6 : 1;
   G.capacity = Math.round((90 + G.level*25) * capMult);
@@ -498,6 +611,7 @@ function startLevel(keepBelt){
 function fulfilOrder(){
   G.orders.shift();
   G.combo++;
+  if (G.combo > (ST.rec.streak||0)){ ST.rec.streak = G.combo; saveStats(); }
   G.missRow = 0;
   G.pace = clamp(G.pace + 0.045, paceFloor(), 1);
   // no dead time: the next order must be FULLY on screen and readable —
@@ -550,8 +664,8 @@ function tapCandidate(c){
   o.state = 'held';
   const flyFrom = {x:orderX(o), y:cardY()};
   // for the stats: reaction time, and "quick" = tapped in the belt's first stretch
-  G.tapMs = performance.now() - (G.roundT0||performance.now());
-  G.tapQuick = o.p < 0.45;
+  // "quick" = answered while the order was still calm (before the wobble)
+  G.tapQuick = o.p < 0.66;
 
   if (G.mode==='multiplying'){
     // orient the order's strips to the chosen crate
@@ -597,7 +711,7 @@ function animCardPos(A){
 function finishTiling(){
   const A = G.anim, o = G.orders[0];
   if (A.ok){
-    recordFact(o.a, o.b, true, G.tapQuick, G.tapMs);
+    recordFact(o.a, o.b, G.tapQuick ? 'q' : 'c');
     sGood(); sPour();
     // the order card rides down into the hold with its cargo
     const cp = animCardPos(A);
@@ -618,7 +732,7 @@ function finishTiling(){
     G.anim=null;
     G.phase='aim';
   } else {
-    if (o) recordFact(o.a, o.b, false, false, G.tapMs);
+    if (o) recordFact(o.a, o.b, 'w');
     sWrong();
     G.shake = 1;
     A.cand.wrongT = 1;
@@ -687,7 +801,7 @@ function update(dt){
     G.payT += dt;
     if (G.payT > 3.0){
       G.level++;
-      if (G.level > G.best){ G.best=G.level; localStorage.setItem('ml-best', G.best); }
+      if (G.level > bestFor()){ G.bests[G.pref] = G.level; saveBest(); }
       startLevel(true);
       G.scene='play';
     }
@@ -700,6 +814,10 @@ function update(dt){
     G.scene='payoff'; G.payT=0; sSail();
     ST.h.push({d:dayKey(new Date()), c:G.lvlC, n:Math.max(1,G.lvlN), q:G.lvlQ, lv:G.level+1, m:G.pref});
     if (ST.h.length>MAXHIST) ST.h = ST.h.slice(-MAXHIST);
+    // records: fastest level, longest day streak
+    const dur = Math.round(performance.now() - (G.lvlT0||performance.now()));
+    if (dur>2000 && (!ST.rec.fast || dur < ST.rec.fast)) ST.rec.fast = dur;
+    ST.rec.days = Math.max(ST.rec.days||0, dayStreak());
     saveStats();
     return;
   }
@@ -751,7 +869,7 @@ function update(dt){
   // expiry: front order falls off the dock
   const front = G.orders[0];
   if (front && front.p >= 1 && G.phase==='aim'){
-    recordFact(front.a, front.b, false, false, 12000);
+    recordFact(front.a, front.b, 'w');
     G.orders.shift();
     sSplash();
     G.splashes.push({x:L.edgeX+14, y:L.beltY+30, t:0, a:front.a, b:front.b,
@@ -1446,13 +1564,16 @@ function drawMenu(){
   ctx.fillText('Orders roll in. Tap the crate that matches.', W/2, H*0.445);
   ctx.fillText('Fill the ship before crates fall in the sea!', W/2, H*0.445 + clamp(W*0.06,20,28));
 
-  // mode toggle: easy tables / all tables / hard tables
-  const gap2=W*0.022, mw=Math.min((W*0.92-gap2*2)/3, 150), mh=clamp(H*0.06,42,54);
-  const mx=(W-mw*3-gap2*2)/2, my=H*0.525;
+  // mode toggle: easy tables / all tables / hard tables, each carrying
+  // its own ladder-progress bar (green + check when complete)
+  const gap2=W*0.022, mw=Math.min((W*0.92-gap2*2)/3, 150), mh=clamp(H*0.068,48,60);
+  const mx=(W-mw*3-gap2*2)/2, my=H*0.52;
   const modes=[['beginner','Beginner','easy tables'],['regular','Regular','all tables'],['expert','Expert','hard tables']];
   G.modeBtns=[];
   modes.forEach((m,i)=>{
     const x=mx+i*(mw+gap2), sel=G.pref===m[0];
+    const prog = clamp((G.bests[m[0]]||0)/LADDER_LEN[m[0]], 0, 1);
+    const done = prog>=1;
     G.modeBtns.push({x,y:my,w:mw,h:mh,pref:m[0]});
     ctx.fillStyle = sel ? 'rgba(232,182,76,0.18)' : 'rgba(238,244,248,0.06)';
     rrect(x,my,mw,mh,12); ctx.fill();
@@ -1460,11 +1581,28 @@ function drawMenu(){
     ctx.lineWidth = sel ? 2.5 : 1.5;
     rrect(x,my,mw,mh,12); ctx.stroke();
     ctx.fillStyle = sel ? INK : DIM;
-    ctx.font='800 '+Math.round(mh*0.34)+'px ui-rounded, system-ui, sans-serif';
-    ctx.fillText(m[1], x+mw/2, my+mh*0.36);
-    ctx.font='600 '+Math.round(mh*0.24)+'px ui-rounded, system-ui, sans-serif';
+    ctx.font='800 '+Math.round(mh*0.30)+'px ui-rounded, system-ui, sans-serif';
+    ctx.fillText(m[1], x+mw/2, my+mh*0.30);
+    ctx.font='600 '+Math.round(mh*0.21)+'px ui-rounded, system-ui, sans-serif';
     ctx.fillStyle=DIM;
-    ctx.fillText(m[2], x+mw/2, my+mh*0.72);
+    ctx.fillText(m[2], x+mw/2, my+mh*0.60);
+    // ladder progress bar along the bottom edge
+    const px0=x+10, pw=mw-20, py=my+mh-11;
+    ctx.fillStyle='rgba(238,244,248,0.15)';
+    rrect(px0, py, pw, 4, 2); ctx.fill();
+    if (prog>0){
+      ctx.fillStyle = done ? GOOD : '#e8b64c';
+      rrect(px0, py, Math.max(4, pw*prog), 4, 2); ctx.fill();
+    }
+    if (done){   // checkmark pinned to the button's corner
+      const kx=x+mw-4, ky=my+4;
+      ctx.fillStyle=GOOD;
+      ctx.beginPath(); ctx.arc(kx, ky, 7.5, 0, 7); ctx.fill();
+      ctx.strokeStyle='#15311e'; ctx.lineWidth=2.2; ctx.lineCap='round';
+      ctx.beginPath();
+      ctx.moveTo(kx-3.4, ky); ctx.lineTo(kx-1, ky+2.8); ctx.lineTo(kx+3.4, ky-2.6);
+      ctx.stroke();
+    }
   });
 
   // start button
@@ -1479,54 +1617,23 @@ function drawMenu(){
   ctx.fillStyle='#fff';
   ctx.font='800 '+Math.round(bh*0.42)+'px ui-rounded, system-ui, sans-serif';
   ctx.fillText('PLAY', W/2, by+bh/2+1);
-  if (G.best>2){
-    ctx.fillStyle=DIM;
-    ctx.font='600 '+Math.round(clamp(W*0.036,12,16))+'px ui-rounded, system-ui, sans-serif';
-    ctx.fillText('starting at level '+(Math.max(0,G.best-2)+1), W/2, by+bh+20);
-  }
 
   drawHold();
-  if (G.best>0){   // on the coaming, mirroring the fill counter
-    const g=holdGeom();
-    ctx.fillStyle=INK;
-    ctx.font='700 '+Math.round(clamp(H*0.017,11,15))+'px ui-rounded, system-ui, sans-serif';
-    ctx.textAlign='left'; ctx.textBaseline='bottom';
-    ctx.fillText('Best: level '+G.best, g.hx0, g.hTop-6);
-    ctx.textBaseline='middle';
-  }
 }
 
 /* ================================================================
-   PROGRESS PAGE (ported from the times-tables quiz)
+   PROGRESS PAGE
    ================================================================ */
 const pgEl = document.getElementById('pg');
 document.getElementById('pgclose').addEventListener('click', ()=>{ pgEl.style.display='none'; });
 
-function mastery(s){
-  const raw=(s.q||0)/s.n, conf=s.n/(s.n+2);
-  return 0.5+(raw-0.5)*conf;
-}
-function pgVar(name){ return getComputedStyle(pgEl).getPropertyValue(name).trim(); }
-function hex2rgb(h){ return [parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)]; }
-function makeRamp(){
-  const a=hex2rgb(pgVar('--m0')), b=hex2rgb(pgVar('--m50')), c=hex2rgb(pgVar('--m100'));
-  return m=>{
-    let lo,hi,f;
-    if (m<0.5){ lo=a; hi=b; f=m/0.5; } else { lo=b; hi=c; f=(m-0.5)/0.5; }
-    return 'rgb('+lo.map((v,i)=>Math.round(v+(hi[i]-v)*f)).join(',')+')';
-  };
-}
+const TIERCOL = ['', '#b4503c', '#d6a04a', '#a9c06b', '#8ad69c'];
+
 function el(tag,cls,txt){
   const e=document.createElement(tag);
   if(cls)e.className=cls;
   if(txt!==undefined)e.textContent=txt;
   return e;
-}
-function statCell(value,label,up){
-  const d=el('div','pg-stat');
-  d.appendChild(el('div','n'+(up?' up':''),value));
-  d.appendChild(el('div','l',label));
-  return d;
 }
 function dayStreak(){
   if(!ST.h.length)return 0;
@@ -1536,141 +1643,176 @@ function dayStreak(){
   while(days[dayKey(d)]){ s++; d.setDate(d.getDate()-1); }
   return s;
 }
+function tableMastered(t){
+  for (let k=1;k<=12;k++) if (tierOf(t,k)!==4) return false;
+  return true;
+}
+
+/* ---------- badges ---------- */
+const GLYPHS = {
+  star:   '<path d="M12 3l2.5 5.4 5.9.6-4.4 4 1.2 5.8L12 15.9 6.8 18.8 8 13 3.6 9l5.9-.6z"/>',
+  bolt:   '<path d="M13 2L5 13h5l-2 9 9-12h-5z"/>',
+  flame:  '<path d="M12 2c1 4-3 5-3 9a4.5 4.5 0 009 0c0-2-1-3.5-2-5-.3 1.2-1 2-2 2.3C14.6 6.8 14 4 12 2z"/>',
+  cap:    '<path d="M12 4L2 9l10 5 8-4v5h2V9zM6 13v4c0 1.7 2.7 3 6 3s6-1.3 6-3v-4l-6 3z"/>',
+  compass:'<path d="M12 2a10 10 0 100 20 10 10 0 000-20zm4 6l-2.5 5.5L8 16l2.5-5.5z"/>',
+  trophy: '<path d="M6 3h12v2h3v3c0 2.5-2 4.5-4.5 4.9A6 6 0 0113 16.9V19h3v2H8v-2h3v-2.1a6 6 0 01-3.5-3.1C5 13.5 3 11.5 3 9V5h3zm-1 4v2c0 1.2.8 2.3 2 2.8V7zm14 0h-2v4.8c1.2-.5 2-1.6 2-2.8z"/>',
+  sun:    '<path d="M12 7a5 5 0 100 10 5 5 0 000-10zm0-6h0l1 4h-2zm0 18l1 4h-2zm11-8l-4 1v-2zM5 12l-4 1v-2zm14.8-7.8l-3.5 2.1-1.4-1.4zM8.1 19.1l-3.5 2.1 1.4 1.4zm11.3 2.1l-2.1-3.5 1.4-1.4zM6.7 4.9L4.6 8.4 3.2 7z"/>',
+};
+function badgeDefs(){
+  const perf  = ST.h.filter(r=>r.n>0 && r.c===r.n).length;
+  const light = ST.h.filter(r=>r.n>0 && (r.q||0)===r.n).length;
+  const days  = Math.max(ST.rec.days||0, dayStreak());
+  return [
+    {name:'Perfect',    glyph:'star',    tiers:[1,5,25],      val:perf,  what:'levels with every answer correct'},
+    {name:'Lightning',  glyph:'bolt',    tiers:[1,5,25],      val:light, what:'levels with every answer quick'},
+    {name:'Hot Streak', glyph:'flame',   tiers:[10,25,50],    val:ST.rec.streak||0, what:'correct answers in a row'},
+    {name:'Beginner Graduate', glyph:'cap', tiers:[LADDER_LEN.beginner], val:G.bests.beginner||0, what:'beginner levels finished'},
+    {name:'Regular Graduate',  glyph:'cap', tiers:[LADDER_LEN.regular],  val:G.bests.regular||0,  what:'regular levels finished'},
+    {name:'Expert Graduate',   glyph:'cap', tiers:[LADDER_LEN.expert],   val:G.bests.expert||0,   what:'expert levels finished'},
+    {name:'Explorer',   glyph:'compass', tiers:[ALLPAIRS.length], val:seenCount(), what:'facts tried'},
+    {name:'Champion',   glyph:'trophy',  tiers:[20,40,60,78], val:masteredCount(), what:'facts mastered'},
+    {name:'Day Streak', glyph:'sun',     tiers:[3,7,30],      val:days,  what:'days in a row'},
+  ];
+}
+const RING = ['#b08d57','#aab4bd','#e8b64c','#8ad69c'];   // tier rings
+function badgeEl(b){
+  const earnedIdx = b.tiers.reduce((e,t,i)=>b.val>=t?i:e, -1);
+  const earned = earnedIdx>=0;
+  const next = b.tiers[Math.min(earnedIdx+1, b.tiers.length-1)];
+  const maxed = earned && earnedIdx===b.tiers.length-1;
+  const d = el('div','pg-badge'+(earned?'':' locked'));
+  const med = el('div','med');
+  med.style.borderColor = earned ? RING[Math.min(earnedIdx + (b.tiers.length===1?2:0), RING.length-1)] : '';
+  med.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true">'+GLYPHS[b.glyph]+'</svg>'+
+    '<span class="tn">'+(earned ? b.tiers[earnedIdx] : next)+'</span>';
+  d.appendChild(med);
+  d.appendChild(el('div','bn', b.name));
+  if (!maxed){
+    const bp = el('div','bp');
+    const f = el('i');
+    f.style.width = Math.round(clamp(b.val/next,0,1)*100)+'%';
+    bp.appendChild(f);
+    d.appendChild(bp);
+    d.appendChild(el('div','bl', Math.min(b.val,next)+' / '+next));
+  } else {
+    d.appendChild(el('div','bl done','complete'));
+  }
+  d.title = b.what;
+  return d;
+}
+
+/* ---------- page sections ---------- */
+function journeyRow(label, mode){
+  const row = el('div','pg-journey');
+  row.appendChild(el('span','jl', label));
+  const done = (G.bests[mode]||0) >= LADDER_LEN[mode];
+  const t = el('div','mt'), f = el('i');
+  const pc = clamp((G.bests[mode]||0)/LADDER_LEN[mode], 0, 1);
+  f.style.width = Math.round(pc*100)+'%';
+  f.style.background = done ? TIERCOL[4] : '#e8b64c';
+  t.appendChild(f); row.appendChild(t);
+  row.appendChild(el('span','jv', done ? '\u2713' : (G.bests[mode]||0)+' / '+LADDER_LEN[mode]));
+  if (done) row.querySelector('.jv').classList.add('done');
+  return row;
+}
+function fmtDur(ms){
+  const s = Math.round(ms/1000);
+  return Math.floor(s/60)+':'+pad(s%60);
+}
 function buildGrid(){
-  const g=el('div','pg-grid'), ramp=makeRamp();
+  const g=el('div','pg-grid');
+  const done={}; for(let t=1;t<=12;t++) done[t]=tableMastered(t);
   g.appendChild(el('div','ax'));
-  for(let c=1;c<=12;c++) g.appendChild(el('div','ax',c));
+  for(let c=1;c<=12;c++) g.appendChild(el('div','ax'+(done[c]?' axdone':''), c));
   for(let r=1;r<=12;r++){
-    g.appendChild(el('div','ax',r));
+    g.appendChild(el('div','ax'+(done[r]?' axdone':''), r));
     for(let c2=1;c2<=12;c2++){
-      const s=ST.f[fkey(r,c2)], cell2=el('div','cell'+(s&&s.n?'':' off'));
-      if(s&&s.n){
-        cell2.style.background=ramp(mastery(s));
-        cell2.title=r+' × '+c2+' — '+(s.n-s.w)+'/'+s.n+' right';
+      const t=tierOf(r,c2);
+      const cell2=el('div','cell'+(t?'':' off')+((t&&(done[r]||done[c2]))?' band':''));
+      if(t){
+        cell2.style.background=TIERCOL[t];
+        const w=factWin(r,c2);
+        cell2.title=r+' \u00d7 '+c2+' \u2014 quick on '+w.qk+' of last '+w.m;
       } else {
-        cell2.title=r+' × '+c2+' — not asked yet';
+        cell2.title=r+' \u00d7 '+c2+' \u2014 not asked yet';
       }
       g.appendChild(cell2);
     }
   }
   return g;
 }
-function weakest(){
-  const by={};
-  for(const k in ST.f){
-    if(!ST.f[k].n)continue;
-    const m=mastery(ST.f[k]);
-    k.split('x').forEach(f=>{(by[f]=by[f]||[]).push(m);});
-  }
-  const list=Object.keys(by).map(f=>({f:+f, m:by[f].reduce((x,y)=>x+y,0)/by[f].length}));
-  list.sort((x,y)=>x.m-y.m);
-  return list.slice(0,2).map(o=>o.f).sort((x,y)=>x-y);
-}
-function buildChart(){
-  const wrap=el('div','pg-chart');
-  const A=ST.h.map(r=>r.c/r.n*100), B=ST.h.map(r=>(r.q||0)/r.n*100);
-  const CW=476, CH=190, PL=6, PR=6, PT=20, PB=14, maxY=108, last=A.length-1;
-  const x=i=>A.length<2?CW/2:PL+(CW-PL-PR)*i/(A.length-1);
-  const y=v=>PT+(CH-PT-PB)*(1-clamp(v,0,maxY)/maxY);
-  const smooth=arr=>arr.map((_,i)=>{
-    const win=arr.slice(Math.max(0,i-2),i+1);
-    return win.reduce((p,c)=>p+c,0)/win.length;
-  });
-  const pathOf=arr=>{
-    let d='M '+x(0)+' '+y(arr[0]);
-    arr.forEach((v,i)=>{if(i)d+=' L '+x(i)+' '+y(v);});
-    return d;
-  };
-  const line=pgVar('--line'), muted=pgVar('--muted'), c1=pgVar('--accent'), c2=pgVar('--accent2');
-  const sa=smooth(A), sb=smooth(B);
-  let s='';
-  s+='<line x1="'+PL+'" y1="'+y(100)+'" x2="'+(CW-PR)+'" y2="'+y(100)+'" stroke="'+line+'" stroke-width="1" stroke-dasharray="3 4"/>';
-  s+='<text x="'+PL+'" y="'+(y(100)-5)+'" font-size="10" fill="'+muted+'">100%</text>';
-  s+='<path d="'+pathOf(sa)+' L '+x(last)+' '+(CH-PB)+' L '+x(0)+' '+(CH-PB)+' Z" fill="'+c1+'" opacity="0.08"/>';
-  [[sb,c2],[sa,c1]].forEach(p=>{
-    s+='<path d="'+pathOf(p[0])+'" fill="none" stroke="'+p[1]+'" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>';
-  });
-  [[sb,c2],[sa,c1]].forEach(p=>{
-    s+='<circle cx="'+x(last)+'" cy="'+y(p[0][last])+'" r="4.5" fill="'+p[1]+'"/>';
-  });
-  wrap.innerHTML='<svg viewBox="0 0 '+CW+' '+CH+'" role="img" aria-label="Correct and quick answers across '+A.length+' levels">'+s+'</svg>';
-  return wrap;
-}
-function meterRow(label,num,den,ramp){
-  const m=el('div','pg-meter'), h=el('div','mh');
-  h.appendChild(el('span',null,label));
-  const bb=el('b',null,num+' / '+den);
-  h.appendChild(bb); m.appendChild(h);
-  const t=el('div','mt'), f2=el('i'), pc=den?num/den:0;
-  f2.style.width=Math.round(pc*100)+'%';
-  f2.style.background=ramp(pc);
-  t.appendChild(f2); m.appendChild(t);
-  return m;
-}
+
 function showProgress(){
   const body=document.getElementById('pgbody');
   body.innerHTML='';
-  const ramp=makeRamp(), lastLv=ST.h[ST.h.length-1];
 
-  const row=el('div','pg-stats');
-  row.appendChild(statCell(ST.h.length,'Ships loaded'));
-  row.appendChild(statCell(dayStreak(),'Day streak'));
-  row.appendChild(statCell(G.best,'Best level',G.best>0));
-  body.appendChild(row);
-
-  if (lastLv){
-    const s0=el('div','pg-sec');
-    s0.appendChild(el('h2',null,'Last ship'));
-    const ms2=el('div','pg-meters');
-    ms2.appendChild(meterRow('Correct', lastLv.c, lastLv.n, ramp));
-    ms2.appendChild(meterRow('Quick', lastLv.q||0, lastLv.n, ramp));
-    s0.appendChild(ms2);
-    body.appendChild(s0);
-  }
-
-  const s1=el('div','pg-sec');
-  s1.appendChild(el('h2',null,'Times table'));
-  s1.appendChild(buildGrid());
-  const w=weakest();
-  if(ST.h.length>=3&&w.length===2)s1.appendChild(el('p','pg-note','Your '+w[0]+'s and '+w[1]+'s need the most work.'));
-  const lg=el('div','pg-legend');
-  lg.appendChild(el('span',null,'Needs work'));
-  lg.appendChild(el('span','pg-ramp'));
-  lg.appendChild(el('span',null,'Mastered'));
-  s1.appendChild(lg);
-  const kk=el('div','pg-key');
-  kk.appendChild(el('i')); kk.appendChild(el('span',null,'Not asked yet'));
-  s1.appendChild(kk);
+  // your journey
+  const s1=el('div','pg-sec first');
+  s1.appendChild(el('h2',null,'Your journey'));
+  s1.appendChild(journeyRow('Beginner','beginner'));
+  s1.appendChild(journeyRow('Regular','regular'));
+  s1.appendChild(journeyRow('Expert','expert'));
   body.appendChild(s1);
 
+  // records
   const s2=el('div','pg-sec');
-  s2.appendChild(el('h2',null,'Improvement'));
-  if(ST.h.length>=2){
-    s2.appendChild(buildChart());
-    const keys=el('div','pg-keys');
-    [['Correct','--accent'],['Quick','--accent2']].forEach(k=>{
-      const sp=el('span'), sw=el('i');
-      sw.style.background=pgVar(k[1]);
-      sp.appendChild(sw); sp.appendChild(el('span',null,k[0]));
-      keys.appendChild(sp);
-    });
-    s2.appendChild(keys);
-    const f3=el('div','pg-foot');
-    f3.appendChild(el('span',null,'First ship'));
-    f3.appendChild(el('span',null,'Today'));
-    s2.appendChild(f3);
-  } else {
-    s2.appendChild(el('p','pg-note','Load one more ship and your progress lines start.'));
-  }
+  s2.appendChild(el('h2',null,'Records'));
+  const recs=el('div','pg-stats two');
+  const r1=el('div','pg-stat');
+  r1.appendChild(el('div','n', (ST.rec.streak||0)>0 ? ''+ST.rec.streak : '\u2014'));
+  r1.appendChild(el('div','l','Longest streak'));
+  const r2=el('div','pg-stat');
+  r2.appendChild(el('div','n', ST.rec.fast ? fmtDur(ST.rec.fast) : '\u2014'));
+  r2.appendChild(el('div','l','Fastest level'));
+  recs.appendChild(r1); recs.appendChild(r2);
+  s2.appendChild(recs);
   body.appendChild(s2);
 
+  // badges
+  const s3=el('div','pg-sec');
+  s3.appendChild(el('h2',null,'Badges'));
+  const wall=el('div','pg-badges');
+  badgeDefs().forEach(b=>wall.appendChild(badgeEl(b)));
+  s3.appendChild(wall);
+  body.appendChild(s3);
+
+  // mastery meter + grid
+  const s4=el('div','pg-sec');
+  s4.appendChild(el('h2',null,'Times table'));
+  const mm=el('div','pg-meter');
+  const mh2=el('div','mh');
+  mh2.appendChild(el('span',null,'Facts mastered'));
+  const mc=masteredCount();
+  mh2.appendChild(Object.assign(el('b'),{textContent:mc+' / '+ALLPAIRS.length}));
+  mm.appendChild(mh2);
+  const mt=el('div','mt'), mf=el('i');
+  mf.style.width=Math.round(mc/ALLPAIRS.length*100)+'%';
+  mf.style.background=TIERCOL[4];
+  mt.appendChild(mf); mm.appendChild(mt);
+  s4.appendChild(mm);
+  s4.appendChild(buildGrid());
+  const lg=el('div','pg-legend');
+  lg.appendChild(el('span',null,'Still practicing'));
+  const pills=el('span','pg-pills');
+  TIERCOL.slice(1).forEach(c=>{ const i2=el('i'); i2.style.background=c; pills.appendChild(i2); });
+  lg.appendChild(pills);
+  lg.appendChild(el('span',null,'Mastered'));
+  s4.appendChild(lg);
+  const kk=el('div','pg-key');
+  kk.appendChild(el('i')); kk.appendChild(el('span',null,'Not asked yet'));
+  s4.appendChild(kk);
+  body.appendChild(s4);
+
+  // clear
   const cw2=el('div','pg-clear');
   const cl=el('button','link','Clear my history');
   cl.addEventListener('click',()=>{
     if(confirm('Clear all your progress? This cannot be undone.')){
-      ST={f:{},h:[]}; saveStats();
-      try{ localStorage.removeItem('ml-best'); }catch(e){}
-      G.best=0;
+      ST={f:{},h:[],rec:{streak:0,fast:0,days:0}}; saveStats();
+      for (const m of ['beginner','regular','expert']){
+        try{ localStorage.removeItem('ml-best-'+m); }catch(e){}
+        G.bests[m]=0;
+      }
       pgEl.style.display='none';
     }
   });
@@ -1740,6 +1882,7 @@ setInterval(()=>{
   chartEl.style.display = (onMenu && ST.h.length) ? 'block' : 'none';
 }, 250);
 loadStats();
+G.bests = loadBests();
 resize();
 requestAnimationFrame(frame);
 </script>
