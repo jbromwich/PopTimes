@@ -67,40 +67,11 @@ body{
 #fb .modes button{font-family:inherit;font-size:14px;padding:8px 12px;border:1px solid var(--line-strong);border-radius:999px;background:none;color:var(--muted);cursor:pointer;-webkit-tap-highlight-color:transparent}
 #fb .modes button span{display:block;font-size:11px;margin-top:2px}
 #fb .modes button.sel{color:var(--ink);border-color:var(--accent);border-width:2px;padding:7px 11px}
+#fb .modes .mbar{height:4px;border-radius:2px;background:var(--line);margin-top:6px;overflow:hidden;position:relative}
+#fb .modes .mbar i{display:block;height:100%;border-radius:2px;background:#e8b64c}
+#fb .modes .mbar i.done{background:#6cb043}
+#fb .modes .mchk{color:#6cb043;font-weight:700;margin-left:4px}
 
-/* ---- progress screen ---- */
-.pg-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding-bottom:20px;border-bottom:1px solid var(--line)}
-.pg-meters{display:flex;flex-direction:column;gap:15px}
-.pg-meter .mh{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;color:var(--muted);margin-bottom:7px}
-.pg-meter .mh b{font-weight:400;font-size:18px;color:var(--ink);font-variant-numeric:tabular-nums}
-.pg-meter .mt{height:10px;border-radius:5px;background:var(--line);overflow:hidden}
-.pg-meter .mt i{display:block;height:100%;border-radius:5px}
-.pg-keys{display:flex;gap:18px;margin-top:12px;font-size:12px;color:var(--muted);flex-wrap:wrap}
-.pg-keys>span{display:flex;align-items:center;gap:6px}
-.pg-keys i{width:14px;height:3px;border-radius:2px;display:block}
-.pg-stat{text-align:center}
-.pg-stat .n{font-size:30px;line-height:1.1;color:var(--ink);font-variant-numeric:tabular-nums}
-.pg-stat .n.up{color:var(--ok-ink)}
-.pg-stat .n .u{font-size:.58em;margin-left:1px}
-.pg-stat .l{font-size:10px;color:var(--muted);margin-top:5px;letter-spacing:.07em;text-transform:uppercase;line-height:1.3}
-.pg-sec{padding-top:22px}
-.pg-sec + .pg-sec{margin-top:22px;border-top:1px solid var(--line)}
-.pg-sec h2{font-size:11px;font-weight:400;color:var(--muted);letter-spacing:.09em;text-transform:uppercase;margin:0 0 14px}
-.pg-grid{display:grid;grid-template-columns:18px repeat(12,1fr);gap:3px}
-.pg-grid .ax{display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums}
-.pg-grid .cell{aspect-ratio:1;border-radius:3px}
-.pg-grid .cell.off{border:1px dashed var(--line);background:transparent}
-.pg-note{margin-top:14px;font-size:14px;color:var(--ink);line-height:1.5}
-.pg-legend{margin-top:12px;display:flex;align-items:center;gap:10px;font-size:10px;color:var(--muted);letter-spacing:.05em;text-transform:uppercase}
-.pg-ramp{height:7px;flex:1;border-radius:4px;background:linear-gradient(90deg,var(--m0),var(--m50),var(--m100))}
-.pg-key{display:flex;align-items:center;gap:5px;text-transform:none;letter-spacing:0;font-size:11px;margin-top:10px;color:var(--muted)}
-.pg-key i{width:11px;height:11px;border-radius:3px;border:1px dashed var(--line);display:block}
-.pg-chart{width:100%;overflow-x:auto}
-.pg-chart svg{display:block;width:100%;height:auto}
-.pg-foot{margin-top:10px;display:flex;justify-content:space-between;font-size:11px;color:var(--muted)}
-.pg-milestone{margin-top:22px;padding-top:18px;border-top:1px solid var(--line);text-align:center;font-size:15px;color:var(--muted);text-wrap:balance}
-.pg-milestone b{color:var(--ink);font-weight:400}
-.pg-clear{margin-top:20px;text-align:center}
 @media (prefers-reduced-motion: reduce){*{transition:none !important}}
 </style>
 </head>
@@ -112,97 +83,71 @@ body{
   <div id="opts"></div>
   <div id="fb"></div>
 </div>
+<script src="stats.js"></script>
 <script>
+/* Times-tables quiz on the shared PopTimes progression:
+   levels are ladder rungs shared with the Loader — pass a test
+   (>=90% correct, and never 3 wrong in a row) to advance. */
 var MODES={
   beginner:{label:'Beginner',sub:'easy tables'},
   regular:{label:'Regular',sub:'all tables'},
   expert:{label:'Expert',sub:'hard tables'}
 };
-var mode=localStorage.getItem('poptimes-mode');
-if(!MODES[mode])mode='expert';
-var TOTAL=20,KEY='poptimes-v3',GRACE=2500;
-var OLDKEYS=['times-tables-stats','poptimes-v2'],MAXHIST=200;
+var TESTLEN={beginner:10,regular:15,expert:20};
+var STEPMS={beginner:2600,regular:2100,expert:1700};
+var GRACE=2500;
+var mode=localStorage.getItem('ml-mode')||localStorage.getItem('poptimes-mode');
+if(!MODES[mode])mode='regular';
+try{localStorage.removeItem('poptimes-v3');localStorage.removeItem('poptimes-mode');}catch(e){}
+
 var q=document.getElementById('q'),qa=document.getElementById('qa'),opts=document.getElementById('opts'),
     fb=document.getElementById('fb'),prog=document.getElementById('prog'),sc=document.getElementById('score'),
     bar=document.getElementById('bar'),qrow=document.getElementById('qrow'),track=document.getElementById('track'),
     quit=document.getElementById('quit'),chartBtn=document.getElementById('chart');
-quit.addEventListener('click',function(){welcome();});
-chartBtn.addEventListener('click',function(){progress();});
-var a,b,ans,score=0,n=0,lock=false,t0=0,stats={},hist=[],recent=[],log=[],tick=0,testMs=0;
-var dropped=false,quick=0;
-var PAIRS=[];
-/* expert = the original curated list; regular = every fact 1-12;
-   beginner = exactly the facts expert leaves out */
-function buildPairs(){
-  var T=[3,4,5,6,7,8,9,12],ex=[],i,j;
-  for(i=0;i<T.length;i++)for(j=i+1;j<T.length;j++)ex.push([T[i],T[j]]);
-  ex.push([10,11],[11,11],[11,12],[10,12],[12,12]);
-  if(mode==='expert'){PAIRS=ex;return;}
-  var all=[];
-  for(i=1;i<=12;i++)for(j=i;j<=12;j++)all.push([i,j]);
-  if(mode==='regular'){PAIRS=all;return;}
-  var set={};
-  ex.forEach(function(p){set[p[0]+'x'+p[1]]=1;});
-  PAIRS=all.filter(function(p){return !set[p[0]+'x'+p[1]];});
-}
-buildPairs();
+quit.addEventListener('click',function(){clearTimeout(tick);welcome();});
+chartBtn.addEventListener('click',function(){showProgress();});
 
-function key(x,y){return Math.min(x,y)+'x'+Math.max(x,y)}
+var a,b,ans,level=0,streak=0,recent=[];
+var N=0,idx=0,c=0,qc=0,consecW=0,log=[],testT0=0,tables=[];
+var lock=false,tick=0,dropped=false,t0=0;
+
 function rnd(x){return Math.floor(Math.random()*x)}
-function clamp(v,lo,hi){return Math.max(lo,Math.min(hi,v))}
-function load(){
-  try{OLDKEYS.forEach(function(k){localStorage.removeItem(k);});}catch(e){}
-  try{
-    var r=localStorage.getItem(KEY);
-    if(r){var o=JSON.parse(r);stats=o.f||{};hist=o.h||[];}
-  }catch(e){stats={};hist=[];}
+function stepMs(){return STEPMS[mode]}
+function chrome(showQuit,showChart){
+  quit.style.display=showQuit?'block':'none';
+  document.getElementById('exit').style.display=showQuit?'none':'block';
+  chartBtn.style.display=(showChart&&(ST.h.length||seenCount()))?'block':'none';
 }
-function save(){try{localStorage.setItem(KEY,JSON.stringify({f:stats,h:hist}));}catch(e){}}
-function hasHistory(){for(var k in stats){return true;}return false;}
-function weight(p){
-  var s=stats[key(p[0],p[1])];
-  if(!s||!s.n)return 4;
-  return Math.max(0.5,Math.min(20,(s.t/s.n/1000)*(1+2*(s.w/s.n))));
+
+/* ---------- a test = one ladder level ---------- */
+function startRun(){
+  level=Math.max(0,(BESTS[mode]||0)-2);
+  startTest();
 }
-function avgMs(){var t=0,c=0;for(var k in stats){t+=stats[k].t;c+=stats[k].n;}return c?t/c:7000;}
-function stepMs(){return Math.max(900,Math.min(3200,avgMs()*0.4));}
-function pickPair(){
-  var pool=PAIRS.filter(function(p){return recent.indexOf(key(p[0],p[1]))===-1;});
-  var src=pool.length?pool:PAIRS;
-  /* coverage first: most picks cycle through the least-asked facts so the
-     whole set gets seen evenly; the rest are struggle-weighted practice */
-  if(Math.random()>=0.3){
-    var minN=Infinity;
-    src.forEach(function(p){var s=stats[key(p[0],p[1])],n=s?s.n:0;if(n<minN)minN=n;});
-    src=src.filter(function(p){var s=stats[key(p[0],p[1])];return (s?s.n:0)===minN;});
-  }
-  var w=src.map(weight),sum=w.reduce(function(x,y){return x+y;},0),r=Math.random()*sum;
-  for(var i=0;i<src.length;i++){r-=w[i];if(r<=0)return src[i];}
-  return src[0];
+function startTest(){
+  var rung=ladderRung(mode,level);
+  tables=rung.tables;
+  N=TESTLEN[mode];idx=0;c=0;qc=0;consecW=0;log=[];recent=[];streak=streak||0;
+  testT0=Date.now();
+  track.style.display='';qrow.style.display='';
+  sc.textContent='Score 0';
+  chrome(true,false);
+  fb.innerHTML='';fb.style.textAlign='center';
+  qrow.style.gridTemplateColumns='1fr 1fr';q.style.textAlign='right';
+  next();
 }
-function alive(){return [].slice.call(opts.children).filter(function(c){return c.style.opacity!=='0';});}
-function drop(){
-  if(lock)return;
-  var wrong=alive().filter(function(c){return +c.textContent!==ans;});
-  if(wrong.length<=1){tick=setTimeout(timeup,stepMs());return;}
-  var victim=wrong[rnd(wrong.length)];
-  victim.style.opacity='0';victim.style.pointerEvents='none';dropped=true;
-  tick=setTimeout(wrong.length-1<=1?timeup:drop,stepMs());
-}
-function timeup(){if(!lock)pick(null,null,true);}
 function next(){
-  if(n>=TOTAL)return finish();
-  lock=false;dropped=false;fb.textContent='';n++;
+  if(consecW>=3||idx>=N)return finish();
+  lock=false;dropped=false;fb.textContent='';idx++;
   quit.style.display='block';document.getElementById('exit').style.display='none';
   qa.textContent='';qa.style.opacity='0';
   opts.style.opacity='1';opts.style.pointerEvents='auto';
-  prog.textContent='Question '+n+' of '+TOTAL;
-  bar.style.width=Math.round((n-1)/TOTAL*100)+'%';
-  var p=pickPair(),k=key(p[0],p[1]),s=stats[k];
-  var flip=s&&s.o===0?1:(s?0:rnd(2));
-  if(flip){a=p[1];b=p[0];}else{a=p[0];b=p[1];}
-  ans=a*b;q.innerHTML='';q.textContent=a+' × '+b;
-  recent.push(k);if(recent.length>3)recent.shift();
+  prog.textContent='Level '+(level+1)+' \u00b7 Question '+idx+' of '+N;
+  bar.style.width=Math.round((idx-1)/N*100)+'%';
+  var f=pickFact({pref:mode,tables:tables,recent:recent});
+  a=f.a;b=f.b;ans=a*b;
+  recent.push(fkey(a,b));if(recent.length>4)recent.shift();
+  q.innerHTML='';q.textContent=a+' \u00d7 '+b;
   var seen={},vals=[ans],g=0;seen[ans]=1;
   while(vals.length<6&&g++<300){
     var d=(1+rnd(9))*(Math.random()<0.5?-1:1),v=ans+d;
@@ -222,30 +167,89 @@ function next(){
   tick=setTimeout(drop,GRACE+stepMs());
   t0=Date.now();
 }
+function alive(){return [].slice.call(opts.children).filter(function(x){return x.style.opacity!=='0';});}
+function drop(){
+  if(lock)return;
+  var wrong=alive().filter(function(x){return +x.textContent!==ans;});
+  if(wrong.length<=1){tick=setTimeout(timeup,stepMs());return;}
+  var victim=wrong[rnd(wrong.length)];
+  victim.style.opacity='0';victim.style.pointerEvents='none';dropped=true;
+  tick=setTimeout(wrong.length-1<=1?timeup:drop,stepMs());
+}
+function timeup(){if(!lock)pick(null,null,true);}
 function pick(v,btn,timedOut){
   if(lock)return;lock=true;clearTimeout(tick);
-  var el=Date.now()-t0,k=key(a,b),ok=!timedOut&&v===ans,maxT=GRACE+5*stepMs();
-  var spent=ok?Math.min(el,maxT):maxT;
-  var wasQuick=ok&&!dropped;
-  var s=stats[k]||(stats[k]={t:0,n:0,w:0,q:0,o:0});
-  s.t+=spent;s.n++;if(!ok)s.w++;if(wasQuick)s.q=(s.q||0)+1;s.o=(a<b)?0:1;
-  testMs+=spent;if(wasQuick)quick++;
+  var ok=!timedOut&&v===ans;
+  var wasQuick=ok&&!dropped;   /* quick = answered before options started dropping */
+  recordOutcome(a,b, ok?(wasQuick?'q':'c'):'w');
   if(ok){
-    score++;
-    btn.style.background='var(--ok-bg)';btn.style.color='var(--ok-ink)';
+    c++;if(wasQuick)qc++;streak++;noteStreak(streak);consecW=0;
+    if(btn){btn.style.background='var(--ok-bg)';btn.style.color='var(--ok-ink)';}
     qa.textContent='= '+ans;qa.style.opacity='1';
-  } else {
-    log.push({q:a+' × '+b,ans:ans});
+  }else{
+    streak=0;consecW++;
+    log.push({q:a+' \u00d7 '+b,ans:ans});
     if(btn){btn.style.background='var(--bad-bg)';btn.style.color='var(--bad-ink)';}
     setTimeout(function(){
       opts.style.opacity='0';opts.style.pointerEvents='none';
       qa.textContent='= '+ans;qa.style.opacity='1';
     },timedOut?0:450);
   }
-  sc.textContent='Score '+score;
-  bar.style.width=Math.round(n/TOTAL*100)+'%';
-  save();
-  setTimeout(next,ok?1400:2900);
+  sc.textContent='Score '+c;
+  bar.style.width=Math.round(idx/N*100)+'%';
+  setTimeout(next,ok?1200:2600);
+}
+function finish(){
+  var brokeDown=consecW>=3;
+  var need=Math.round(0.9*N);
+  var passed=!brokeDown&&c>=need;
+  noteLevelResult(
+    {d:dayKey(new Date()),c:c,n:Math.max(1,idx),q:qc,lv:level+1,m:mode},
+    passed?{dur:Date.now()-testT0}:undefined);
+  if(passed&&level+1>(BESTS[mode]||0)){BESTS[mode]=level+1;saveBest(mode);}
+  prog.textContent='';sc.textContent='';track.style.display='none';
+  chrome(false,true);
+  qrow.style.gridTemplateColumns='1fr';q.style.textAlign='center';
+  q.innerHTML='';q.textContent=c+' / '+idx;
+  qa.textContent='';qa.style.opacity='0';
+  opts.innerHTML='';opts.style.opacity='1';
+  fb.innerHTML='';fb.style.textAlign='left';
+  var p=document.createElement('div');
+  p.style.cssText='font-size:22px;color:var(--ink);margin-bottom:8px;text-align:center;';
+  p.textContent=passed?('Level '+(level+1)+' passed!'):('Level '+(level+1)+' \u2014 not yet');
+  fb.appendChild(p);
+  var sub=document.createElement('div');
+  sub.style.cssText='font-size:14px;color:var(--muted);margin-bottom:20px;text-align:center;';
+  sub.textContent=brokeDown?'Three wrong in a row ends the level.'
+    :(passed?'On to the next one.':'You need '+need+' of '+N+' correct.');
+  fb.appendChild(sub);
+  if(!log.length){
+    var d=document.createElement('div');
+    d.style.cssText='font-size:18px;text-align:center;color:var(--ok-ink);';
+    d.textContent='Nothing missed this round';
+    fb.appendChild(d);
+  }else{
+    var h=document.createElement('div');
+    h.style.cssText='font-size:16px;color:var(--muted);margin-bottom:8px;';
+    h.textContent='Keep working on these:';
+    fb.appendChild(h);
+    log.forEach(function(r){
+      var row=document.createElement('div');
+      row.className='row';row.textContent=r.q+' = '+r.ans;
+      fb.appendChild(row);
+    });
+  }
+  var wrap=document.createElement('div');
+  wrap.style.cssText='text-align:center;margin-top:22px;';
+  wrap.appendChild(bigBtn(passed?'Next level':'Try again',function(){
+    if(passed)level++;
+    startTest();
+  }));
+  fb.appendChild(wrap);
+  var lw=document.createElement('div');
+  lw.style.cssText='text-align:center;margin-top:14px;';
+  lw.appendChild(linkBtn('See your progress',function(){showProgress();}));
+  fb.appendChild(lw);
 }
 function bigBtn(label,fn){
   var btn=document.createElement('button');
@@ -255,40 +259,31 @@ function linkBtn(label,fn){
   var btn=document.createElement('button');
   btn.className='link';btn.textContent=label;btn.addEventListener('click',fn);return btn;
 }
-function chrome(showQuit,showChart){
-  quit.style.display=showQuit?'block':'none';
-  document.getElementById('exit').style.display=showQuit?'none':'block';
-  chartBtn.style.display=(showChart&&hist.length)?'block':'none';
-}
-function reset(){
-  track.style.display='';qrow.style.display='';
-  score=0;n=0;recent=[];log=[];testMs=0;quick=0;dropped=false;sc.textContent='Score 0';
-  chrome(true,false);
-  fb.innerHTML='';fb.style.textAlign='center';
-  qrow.style.gridTemplateColumns='1fr 1fr';q.style.textAlign='right';
-  next();
-}
 function welcome(){
   clearTimeout(tick);lock=true;
   prog.textContent='';sc.textContent='';bar.style.width='0';
   track.style.display='none';qrow.style.display='';
   chrome(false,true);
   qrow.style.gridTemplateColumns='1fr';q.style.textAlign='center';
-  q.innerHTML='<span class="brand">PopTimes</span><span class="ver">1.1</span><div class="subtitle">times tables quiz</div>';
+  q.innerHTML='<span class="brand">PopTimes</span><span class="ver">2.0</span><div class="subtitle">times tables quiz</div>';
   qa.textContent='';qa.style.opacity='0';
   opts.innerHTML='';opts.style.opacity='1';
   fb.innerHTML='';fb.style.textAlign='center';
-  fb.appendChild(bigBtn(hasHistory()?'Continue Quiz':'Start',reset));
+  fb.appendChild(bigBtn((BESTS[mode]||0)>0?'Continue':'Start',startRun));
   var mrow=document.createElement('div');
   mrow.className='modes';
   Object.keys(MODES).forEach(function(k){
     var btn=document.createElement('button');
     btn.className=k===mode?'sel':'';
-    btn.innerHTML=MODES[k].label+'<span>'+MODES[k].sub+'</span>';
+    var done=(BESTS[k]||0)>=LADDER_LEN[k];
+    var pc=Math.min(1,(BESTS[k]||0)/LADDER_LEN[k]);
+    btn.innerHTML=MODES[k].label+(done?'<span class="mchk">\u2713</span>':'')
+      +'<span>'+MODES[k].sub+'</span>'
+      +'<div class="mbar"><i class="'+(done?'done':'')+'" style="width:'+Math.round(pc*100)+'%"></i></div>';
     btn.addEventListener('click',function(){
       mode=k;
-      try{localStorage.setItem('poptimes-mode',k);}catch(e){}
-      buildPairs();welcome();
+      try{localStorage.setItem('ml-mode',k);}catch(e){}
+      welcome();
     });
     mrow.appendChild(btn);
   });
@@ -302,263 +297,7 @@ function welcome(){
   foot.innerHTML='by <a href="https://julianbromwich.com" target="_blank" rel="noopener">Julian Bromwich</a>';
   fb.appendChild(foot);
 }
-function wipe(){
-  try{localStorage.removeItem(KEY);}catch(e){}
-  stats={};hist=[];welcome();
-}
-function finish(){
-  var pct=Math.round(score/TOTAL*100);
-  var msg=pct>=90?'Excellent':pct>=70?'Good work':pct>=50?'Getting there':'Keep practising';
-  clearTimeout(tick);
-  hist.push({d:dayKey(new Date()),c:score,q:quick,t:Math.round(testMs),n:TOTAL});
-  if(hist.length>MAXHIST)hist=hist.slice(-MAXHIST);
-  save();
-  prog.textContent='';sc.textContent='';track.style.display='none';qrow.style.display='';
-  chrome(false,true);
-  qrow.style.gridTemplateColumns='1fr';q.style.textAlign='center';
-  q.innerHTML='';q.textContent=score+' / '+TOTAL+'  ('+pct+'%)';qa.textContent='';qa.style.opacity='0';
-  opts.innerHTML='';opts.style.opacity='1';
-  fb.innerHTML='';fb.style.textAlign='left';
-  var p=document.createElement('div');
-  p.style.cssText='font-size:22px;color:var(--ink);margin-bottom:22px;text-align:center;';
-  p.textContent=msg+'!';
-  fb.appendChild(p);
-  if(!log.length){
-    var d=document.createElement('div');
-    d.style.cssText='font-size:18px;text-align:center;color:var(--ok-ink);';
-    d.textContent='Nothing missed this round';
-    fb.appendChild(d);
-  } else {
-    var h=document.createElement('div');
-    h.style.cssText='font-size:16px;color:var(--muted);margin-bottom:8px;';
-    h.textContent='Keep working on these:';
-    fb.appendChild(h);
-    log.forEach(function(r){
-      var row=document.createElement('div');
-      row.className='row';row.textContent=r.q+' = '+r.ans;
-      fb.appendChild(row);
-    });
-  }
-  var wrap=document.createElement('div');
-  wrap.style.cssText='text-align:center;margin-top:22px;';
-  wrap.appendChild(bigBtn('Continue Quiz',reset));
-  fb.appendChild(wrap);
-  var lw=document.createElement('div');
-  lw.style.cssText='text-align:center;margin-top:14px;';
-  lw.appendChild(linkBtn('See your progress',progress));
-  fb.appendChild(lw);
-}
-
-/* ---------- progress ---------- */
-function pad(x){return x<10?'0'+x:''+x}
-function dayKey(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())}
-/* Two measures, both out of the same 20 so the bars are directly
-   comparable and both full means a perfect test. The gap between them
-   is exactly the answers that were right but not instant. */
-function pcCorrect(r){return r.c/r.n}
-function pcInstant(r){return (r.q||0)/r.n}
-function isPerfect(r){return r.c===r.n&&(r.q||0)===r.n}
-/* Per fact: how often you get it right and instantly, damped toward
-   neutral while attempts are few so one unlucky answer can't paint it red. */
-function mastery(s){
-  var raw=(s.q||0)/s.n, conf=s.n/(s.n+2);
-  return 0.5+(raw-0.5)*conf;
-}
-function dayStreak(){
-  if(!hist.length)return 0;
-  var days={};hist.forEach(function(r){days[r.d]=1;});
-  var d=new Date(),s=0;
-  if(!days[dayKey(d)]){d.setDate(d.getDate()-1);if(!days[dayKey(d)])return 0;}
-  while(days[dayKey(d)]){s++;d.setDate(d.getDate()-1);}
-  return s;
-}
-function cssVar(name){return getComputedStyle(document.documentElement).getPropertyValue(name).trim()}
-function hex2rgb(h){return [parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)]}
-function makeRamp(){
-  var a=hex2rgb(cssVar('--m0')),b=hex2rgb(cssVar('--m50')),c=hex2rgb(cssVar('--m100'));
-  return function(m){
-    var lo,hi,f;
-    if(m<0.5){lo=a;hi=b;f=m/0.5;}else{lo=b;hi=c;f=(m-0.5)/0.5;}
-    return 'rgb('+lo.map(function(v,i){return Math.round(v+(hi[i]-v)*f);}).join(',')+')';
-  };
-}
-function el(tag,cls,txt){
-  var e=document.createElement(tag);
-  if(cls)e.className=cls;
-  if(txt!==undefined)e.textContent=txt;
-  return e;
-}
-function statCell(value,label,up,unit){
-  var d=el('div','pg-stat'),v=el('div','n'+(up?' up':''),value);
-  if(unit)v.appendChild(el('span','u',unit));
-  d.appendChild(v);d.appendChild(el('div','l',label));
-  return d;
-}
-function buildGrid(){
-  var g=el('div','pg-grid'),ramp=makeRamp();
-  g.appendChild(el('div','ax'));
-  for(var c=1;c<=12;c++)g.appendChild(el('div','ax',c));
-  for(var r=1;r<=12;r++){
-    g.appendChild(el('div','ax',r));
-    for(var c2=1;c2<=12;c2++){
-      var s=stats[key(r,c2)],cell=el('div','cell'+(s&&s.n?'':' off'));
-      if(s&&s.n){
-        cell.style.background=ramp(mastery(s));
-        cell.title=r+' × '+c2+' — '+(s.n-s.w)+'/'+s.n+' right, '+(s.t/s.n/1000).toFixed(1)+'s average';
-      } else {
-        cell.title=r+' × '+c2+' — not asked yet';
-      }
-      g.appendChild(cell);
-    }
-  }
-  return g;
-}
-function weakest(){
-  var by={};
-  for(var k in stats){
-    if(!stats[k].n)continue;
-    var m=mastery(stats[k]);
-    k.split('x').forEach(function(f){(by[f]=by[f]||[]).push(m);});
-  }
-  var list=Object.keys(by).map(function(f){
-    var arr=by[f];
-    return {f:+f,m:arr.reduce(function(x,y){return x+y;},0)/arr.length};
-  });
-  list.sort(function(x,y){return x.m-y.m;});
-  return list.slice(0,2).map(function(o){return o.f;}).sort(function(x,y){return x-y;});
-}
-function buildChart(){
-  var wrap=el('div','pg-chart');
-  var A=hist.map(function(r){return pcCorrect(r)*100;}),
-      B=hist.map(function(r){return pcInstant(r)*100;});
-  var W=476,H=190,PL=6,PR=6,PT=20,PB=14,maxY=108,last=A.length-1;
-  var x=function(i){return A.length<2?W/2:PL+(W-PL-PR)*i/(A.length-1);};
-  var y=function(v){return PT+(H-PT-PB)*(1-clamp(v,0,maxY)/maxY);};
-  function smooth(arr){
-    return arr.map(function(_,i){
-      var win=arr.slice(Math.max(0,i-2),i+1);
-      return win.reduce(function(p,c){return p+c;},0)/win.length;
-    });
-  }
-  function pathOf(arr){
-    var d='M '+x(0)+' '+y(arr[0]);
-    arr.forEach(function(v,i){if(i)d+=' L '+x(i)+' '+y(v);});
-    return d;
-  }
-  var line=cssVar('--line'),muted=cssVar('--muted'),
-      c1=cssVar('--accent'),c2=cssVar('--accent2');
-  var sa=smooth(A),sb=smooth(B),s='';
-  s+='<line x1="'+PL+'" y1="'+y(100)+'" x2="'+(W-PR)+'" y2="'+y(100)+'" stroke="'+line+'" stroke-width="1" stroke-dasharray="3 4"/>';
-  s+='<text x="'+PL+'" y="'+(y(100)-5)+'" font-size="10" fill="'+muted+'">100%</text>';
-  s+='<path d="'+pathOf(sa)+' L '+x(last)+' '+(H-PB)+' L '+x(0)+' '+(H-PB)+' Z" fill="'+c1+'" opacity="0.08"/>';
-  [[sb,c2],[sa,c1]].forEach(function(p){
-    s+='<path d="'+pathOf(p[0])+'" fill="none" stroke="'+p[1]+'" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>';
-  });
-  [[sb,c2],[sa,c1]].forEach(function(p){
-    s+='<circle cx="'+x(last)+'" cy="'+y(p[0][last])+'" r="4.5" fill="'+p[1]+'"/>';
-  });
-  wrap.innerHTML='<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Correct and instant answers across '+
-    A.length+' tests; latest '+Math.round(A[last])+'% correct, '+Math.round(B[last])+'% instant">'+s+'</svg>';
-  return wrap;
-}
-function meter(label,num,den,ramp){
-  var m=el('div','pg-meter'),h=el('div','mh');
-  h.appendChild(el('span',null,label));
-  h.appendChild(el('b',null,num+' / '+den));
-  m.appendChild(h);
-  var t=el('div','mt'),f=el('i'),pc=den?num/den:0;
-  f.style.width=Math.round(pc*100)+'%';
-  f.style.background=ramp(pc);
-  t.appendChild(f);m.appendChild(t);
-  return m;
-}
-function progress(){
-  clearTimeout(tick);lock=true;
-  prog.textContent='Progress';sc.textContent='';
-  track.style.display='none';qrow.style.display='none';
-  chrome(true,false);
-  opts.innerHTML='';opts.style.opacity='1';
-  qa.textContent='';qa.style.opacity='0';
-  fb.innerHTML='';fb.style.textAlign='left';
-
-  var ramp=makeRamp(),lastTest=hist[hist.length-1];
-  var perfect=hist.filter(isPerfect).length;
-
-  var row=el('div','pg-stats');
-  row.appendChild(statCell(hist.length,'Tests'));
-  row.appendChild(statCell(dayStreak(),'Day streak'));
-  row.appendChild(statCell(perfect,'Perfect',perfect>0));
-  fb.appendChild(row);
-
-  var s0=el('div','pg-sec');
-  s0.appendChild(el('h2',null,'Last test'));
-  var ms2=el('div','pg-meters');
-  ms2.appendChild(meter('Correct',lastTest.c,lastTest.n,ramp));
-  ms2.appendChild(meter('Instant',lastTest.q||0,lastTest.n,ramp));
-  s0.appendChild(ms2);
-  fb.appendChild(s0);
-
-  var s1=el('div','pg-sec');
-  s1.appendChild(el('h2',null,'Times table'));
-  s1.appendChild(buildGrid());
-  var w=weakest();
-  if(hist.length>=3&&w.length===2)s1.appendChild(el('p','pg-note','Your '+w[0]+'s and '+w[1]+'s need the most work.'));
-  var lg=el('div','pg-legend');
-  lg.appendChild(el('span',null,'Needs work'));
-  lg.appendChild(el('span','pg-ramp'));
-  lg.appendChild(el('span',null,'Mastered'));
-  s1.appendChild(lg);
-  var kk=el('div','pg-key');
-  kk.appendChild(el('i'));kk.appendChild(el('span',null,'Not asked in this quiz'));
-  s1.appendChild(kk);
-  fb.appendChild(s1);
-
-  var s2=el('div','pg-sec');
-  s2.appendChild(el('h2',null,'Improvement'));
-  if(hist.length>=2){
-    s2.appendChild(buildChart());
-    var keys=el('div','pg-keys');
-    [['Correct','--accent'],['Instant','--accent2']].forEach(function(k){
-      var sp=el('span'),sw=el('i');
-      sw.style.background=cssVar(k[1]);
-      sp.appendChild(sw);sp.appendChild(el('span',null,k[0]));
-      keys.appendChild(sp);
-    });
-    s2.appendChild(keys);
-  }
-  if(hist.length<3){
-    s2.appendChild(el('p','pg-note',hist.length===1
-      ? 'Your first test is in. Two more and your progress lines start.'
-      : 'One more test and your progress lines start.'));
-  } else {
-    var f=el('div','pg-foot');
-    f.appendChild(el('span',null,'First test'));
-    f.appendChild(el('span',null,'Today'));
-    s2.appendChild(f);
-  }
-  fb.appendChild(s2);
-
-  var ms=el('p','pg-milestone');
-  if(isPerfect(lastTest)){
-    ms.innerHTML='A perfect test — all 20 right, all 20 instant.';
-  } else {
-    var needRight=lastTest.n-lastTest.c, needFast=lastTest.c-(lastTest.q||0), parts=[];
-    if(needRight)parts.push('<b>'+needRight+' more right</b>');
-    if(needFast)parts.push('<b>'+needFast+' more instant</b>');
-    ms.innerHTML=parts.join(' and ')+' for a perfect test';
-  }
-  fb.appendChild(ms);
-
-  var cw=el('div','pg-clear');
-  cw.appendChild(linkBtn('Clear my history',function(){
-    if(confirm('Clear all your progress? This cannot be undone.'))wipe();
-  }));
-  fb.appendChild(cw);
-}
-load();
 welcome();
-/* iOS restores the page from the back-forward cache mid-quiz;
-   reset to the title so the header buttons are consistent */
 window.addEventListener('pageshow',function(e){if(e.persisted)welcome();});
 </script>
 </body>

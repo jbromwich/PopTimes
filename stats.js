@@ -1,0 +1,542 @@
+/* ================================================================
+   PopTimes shared stats: one store, one mastery model, one progress
+   page for both games. Loaded before each game's own script.
+   ================================================================ */
+'use strict';
+
+/* small helpers (self-contained) */
+function _clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
+function pad(x){ return x<10?'0'+x:''+x; }
+function dayKey(d){ return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
+const VER = '1.0';
+// shared three-mode fact lists (same rules as the quiz):
+// expert = the original curated list; regular = all 144; beginner = the rest
+const EASY   = [2,3,4,5,10];
+const ALLT   = [1,2,3,4,5,6,7,8,9,10,11,12];
+const TRICKY = [3,4,5,6,7,8,9,12];
+const EXPAIRS = (()=>{
+  const out=[];
+  for (let i=0;i<TRICKY.length;i++) for (let j=i+1;j<TRICKY.length;j++) out.push([TRICKY[i],TRICKY[j]]);
+  out.push([10,11],[11,11],[11,12],[10,12],[12,12]);
+  return out;
+})();
+const ALLPAIRS = (()=>{
+  const out=[];
+  for (let i=1;i<=12;i++) for (let j=i;j<=12;j++) out.push([i,j]);
+  return out;
+})();
+const BEGPAIRS = (()=>{
+  const ex=new Set(EXPAIRS.map(p=>p[0]+'x'+p[1]));
+  return ALLPAIRS.filter(p=>!ex.has(p[0]+'x'+p[1]));
+})();
+function modePairsFor(pref){ return pref==='expert' ? EXPAIRS : pref==='beginner' ? BEGPAIRS : ALLPAIRS; }
+
+/* ---------- persistent stats ----------
+   Per fact we keep only the last WIN attempts, as a string of outcomes:
+   'q' = correct & quick (answered before the wobble), 'c' = correct but
+   slow, 'w' = wrong or lost. Mastery is judged on this window alone, so
+   early failures never haunt a fact. */
+const SKEY = 'ml-stats-v2';
+const WIN = 10;          // window size
+const MASTER_MIN = 6;    // attempts needed before "mastered" is reachable
+const MASTER_RATE = 5/6; // quick share required (5/6, 6/7, 7/8, 8/9, 9/10)
+const MAXHIST = 200;
+let ST = {f:{}, h:[], rec:{streak:0, fast:0, days:0}};
+function loadStats(){
+  try{
+    const r = localStorage.getItem(SKEY);
+    if (r){
+      const o = JSON.parse(r);
+      ST.f = o.f||{}; ST.h = o.h||[];
+      ST.rec = Object.assign({streak:0, fast:0, days:0}, o.rec);
+      return;
+    }
+    // migrate v1 lifetime counters: seed each window proportionally
+    const v1 = localStorage.getItem('ml-stats-v1');
+    if (v1){
+      const o = JSON.parse(v1);
+      for (const k in (o.f||{})){
+        const s = o.f[k];
+        if (!s || !s.n) continue;
+        const m = Math.min(s.n, WIN);
+        let qk = Math.round((s.q||0)/s.n*m);
+        let wr = Math.min(m-qk, Math.round((s.w||0)/s.n*m));
+        ST.f[k] = {h:'q'.repeat(qk)+'c'.repeat(m-qk-wr)+'w'.repeat(wr)};
+      }
+      ST.h = o.h||[];
+      saveStats();
+      localStorage.removeItem('ml-stats-v1');
+    }
+  }catch(e){ ST = {f:{}, h:[], rec:{streak:0, fast:0, days:0}}; }
+}
+function saveStats(){ try{ localStorage.setItem(SKEY, JSON.stringify(ST)); }catch(e){} }
+function fkey(a,b){ return Math.min(a,b)+'x'+Math.max(a,b); }
+function recordOutcome(a,b,res){   // res: 'q' | 'c' | 'w' — store only
+  const k=fkey(a,b), s=ST.f[k]||(ST.f[k]={h:''});
+  s.h = (s.h + res).slice(-WIN);
+  saveStats();
+}
+// a finished level (either game): push history + update records
+function noteLevelResult(entry, opts){
+  ST.h.push(entry);
+  if (ST.h.length>MAXHIST) ST.h = ST.h.slice(-MAXHIST);
+  if (opts && opts.dur>2000 && (!ST.rec.fast || opts.dur < ST.rec.fast)) ST.rec.fast = Math.round(opts.dur);
+  ST.rec.days = Math.max(ST.rec.days||0, dayStreak());
+  saveStats();
+}
+function noteStreak(n){
+  if (n > (ST.rec.streak||0)){ ST.rec.streak = n; saveStats(); }
+}
+// window summary and the agreed tier grid:
+// 0 = never asked, 1 < 1/3 quick, 2 < 2/3, 3 < 5/6 (or too few attempts),
+// 4 = mastered (>= 5/6 quick over >= 6 attempts)
+function factWin(a,b){
+  const s = ST.f[fkey(a,b)];
+  const h = s ? s.h : '';
+  let qk=0; for (const ch of h) if (ch==='q') qk++;
+  return {m:h.length, qk};
+}
+function tierOf(a,b){
+  const {m,qk} = factWin(a,b);
+  if (!m) return 0;
+  const r = qk/m;
+  if (m>=MASTER_MIN && r>=MASTER_RATE) return 4;
+  if (r < 1/3) return 1;
+  if (r < 2/3) return 2;
+  return 3;
+}
+function masteredCount(){
+  let n=0;
+  for (const p of ALLPAIRS) if (tierOf(p[0],p[1])===4) n++;
+  return n;
+}
+function seenCount(){
+  let n=0;
+  for (const p of ALLPAIRS) if (factWin(p[0],p[1]).m) n++;
+  return n;
+}
+/* per-skill ladder progress (levels completed on each mode's ladder) */
+const LADDER_LEN = {beginner:9, regular:20, expert:12};
+function loadBests(){
+  const out={};
+  for (const m of ['beginner','regular','expert'])
+    out[m] = +(localStorage.getItem('ml-best-'+m)||0);
+  // migrate the old shared best into regular
+  const old = +(localStorage.getItem('ml-best')||0);
+  if (old && !out.regular){
+    out.regular = old;
+    try{ localStorage.setItem('ml-best-regular', old); }catch(e){}
+  }
+  try{ localStorage.removeItem('ml-best'); }catch(e){}
+  return out;
+}
+let BESTS = {beginner:0, regular:0, expert:0};
+function saveBest(mode){
+  try{ localStorage.setItem('ml-best-'+mode, BESTS[mode]); }catch(e){}
+}
+const LEVELS = [
+  {tables:[2],        mode:'multiplying'},
+  {tables:[3],        mode:'multiplying'},
+  {tables:[2,3],      mode:'factoring'},
+  {tables:[4],        mode:'multiplying'},
+  {tables:[2,3,4],    mode:'factoring'},
+  {tables:[5],        mode:'multiplying'},
+  {tables:[3,4,5],    mode:'multiplying'},
+  {tables:[4,5],      mode:'factoring'},
+  {tables:[6],        mode:'multiplying'},
+  {tables:[4,5,6],    mode:'factoring'},
+  {tables:[7],        mode:'multiplying'},
+  {tables:[5,6,7],    mode:'multiplying'},
+  {tables:[6,7],      mode:'factoring'},
+  {tables:[8],        mode:'multiplying'},
+  {tables:[6,7,8],    mode:'factoring'},
+  {tables:[9],        mode:'multiplying'},
+  {tables:[7,8,9],    mode:'multiplying'},
+  {tables:[10,11],    mode:'multiplying'},
+  {tables:[11,12],    mode:'factoring'},
+  {tables:ALLT,       mode:'factoring'},
+];
+const BLEVELS = [
+  {tables:[2],           mode:'multiplying'},
+  {tables:[5],           mode:'multiplying'},
+  {tables:[2,5],         mode:'factoring'},
+  {tables:[3],           mode:'multiplying'},
+  {tables:[2,3,5],       mode:'factoring'},
+  {tables:[4],           mode:'multiplying'},
+  {tables:[3,4],         mode:'multiplying'},
+  {tables:[10],          mode:'multiplying'},
+  {tables:EASY,          mode:'factoring'},
+];
+const XLEVELS = [
+  {tables:[6],           mode:'multiplying'},
+  {tables:[7],           mode:'multiplying'},
+  {tables:[6,7],         mode:'factoring'},
+  {tables:[8],           mode:'multiplying'},
+  {tables:[6,7,8],       mode:'factoring'},
+  {tables:[9],           mode:'multiplying'},
+  {tables:[8,9],         mode:'multiplying'},
+  {tables:[7,8,9],       mode:'factoring'},
+  {tables:[12],          mode:'multiplying'},
+  {tables:[9,12],        mode:'factoring'},
+  {tables:[3,4,12],      mode:'multiplying'},
+  {tables:TRICKY,        mode:'factoring'},
+];
+
+const LADDERS = {beginner:BLEVELS, regular:LEVELS, expert:XLEVELS};
+function ladderRung(mode, n){
+  const list = LADDERS[mode];
+  if (n < list.length) return list[n];
+  return {tables:[...new Set(modePairsFor(mode).flat())], mode: n%2 ? 'factoring' : 'multiplying'};
+}
+
+// tier-weighted selection: unseen facts come first; then practice
+// concentrates on unmastered facts, while mastered ones still resurface
+// occasionally so rusty facts can honestly lose their mastery
+function weightOf(a,b){
+  const t = tierOf(a,b);
+  if (t===0) return 10;                 // unseen (also prioritized below)
+  if (t===4) return 0.5;                // mastered: retention checks only
+  let w = t===1 ? 8 : t===2 ? 5 : 4;
+  if (factWin(a,b).m < MASTER_MIN) w *= 1.3;   // needs attempts to qualify
+  return w;
+}
+function pickFact(o){   // {pref, tables, recent, maxP}
+  // most picks drill the level's focus tables, but a share roams the
+  // whole mode list so every fact gets asked eventually
+  let pool = modePairsFor(o.pref);
+  if (o.maxP!=null){
+    pool = pool.filter(p=>p[0]*p[1]<=o.maxP);
+    if (!pool.length) return null;
+  }
+  if (Math.random()>=0.4){
+    const focus = pool.filter(p=>(o.tables||[]).includes(p[0])||(o.tables||[]).includes(p[1]));
+    if (focus.length) pool = focus;
+  }
+  const fresh = pool.filter(p=>!(o.recent||[]).includes(fkey(p[0],p[1])));
+  let src = fresh.length ? fresh : pool;
+  // absolute coverage guarantee: never-asked facts always go first
+  const unseen = src.filter(p=>tierOf(p[0],p[1])===0);
+  if (unseen.length) src = unseen;
+  const w = src.map(p=>weightOf(p[0],p[1]));
+  let r = Math.random()*w.reduce((x,y)=>x+y,0), f = src[0];
+  for (let i=0;i<src.length;i++){ r-=w[i]; if(r<=0){ f=src[i]; break; } }
+  return Math.random()<0.5 ? {a:f[0],b:f[1]} : {a:f[1],b:f[0]};
+}
+
+
+
+
+/* ---------- progress overlay: injected DOM + CSS ---------- */
+const PG_CSS = `/* ---- progress overlay (styles ported from the quiz) ---- */
+#pg{
+  --ink:#e8edf4; --muted:#94a1b2; --line:#2f3843; --ok-ink:#9fdcae;
+  --accent:#8ab6e0; --accent2:#b9a2e0; --m0:#b4503c; --m50:#dd8b33; --m100:#6cb043;
+  display:none;position:fixed;inset:0;z-index:8;overflow-y:auto;background:#15191f;color:var(--ink);
+  -webkit-user-select:text;user-select:text;touch-action:pan-y;
+}
+#pg .wrap{max-width:520px;margin:0 auto;padding:18px 22px calc(30px + env(safe-area-inset-bottom))}
+#pg .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+#pg .top h1{font-size:15px;font-weight:600;color:var(--muted);margin:0}
+#pg .top button{font-family:inherit;font-size:22px;line-height:1;background:none;border:none;color:var(--muted);cursor:pointer;padding:4px 8px}
+#pg button.link{font-family:inherit;border:none;background:none;color:var(--muted);font-size:15px;text-decoration:underline;padding:8px;cursor:pointer}
+.pg-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.pg-stats.two{grid-template-columns:repeat(2,1fr)}
+.pg-sec.first{padding-top:4px}
+.pg-journey{display:flex;align-items:center;gap:12px;margin-bottom:13px}
+.pg-journey .jl{width:72px;font-size:14px;color:var(--ink)}
+.pg-journey .mt{flex:1}
+.pg-journey .jv{width:52px;text-align:right;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.pg-journey .jv.done{color:#6cb043;font-size:17px}
+.pg-fam{margin-bottom:16px}
+.pg-fam h3{font-size:10px;font-weight:400;color:var(--muted);letter-spacing:.09em;text-transform:uppercase;margin:0 0 8px}
+.pg-fam .strip{display:flex;gap:12px;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch}
+.pg-badge{text-align:center;flex:0 0 86px}
+.pg-badge .med{
+  width:62px;height:62px;margin:0 auto 7px;border-radius:50%;position:relative;
+  background:rgba(232,182,76,0.15);border:3px solid #e8b64c;
+  display:flex;align-items:center;justify-content:center;
+}
+.pg-badge .med svg{width:30px;height:30px;fill:#e8b64c}
+.pg-badge .med .tn{
+  position:absolute;bottom:-6px;right:-4px;background:#e8b64c;color:#1a1408;
+  font-size:11px;font-weight:800;border-radius:999px;padding:1px 6px;
+  font-variant-numeric:tabular-nums;
+}
+.pg-badge.locked .med{background:rgba(238,244,248,0.05);border:2px dashed var(--line)}
+.pg-badge.locked .med svg{fill:#4a5765}
+.pg-badge.locked .med .tn{background:var(--line);color:var(--muted)}
+.pg-badge .bn{font-size:11px;color:var(--ink);line-height:1.25;min-height:27px}
+.pg-badge.locked .bn{color:var(--muted)}
+.pg-badge .bp{height:5px;border-radius:3px;background:var(--line);overflow:hidden;margin:5px 8px 3px}
+.pg-badge .bp i{display:block;height:100%;border-radius:3px;background:#e8b64c}
+.pg-badge .bl{font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums}
+.pg-badge .bl.done{color:#6cb043}
+.pg-pills{display:flex;gap:5px;flex:1;justify-content:center}
+.pg-pills i{width:26px;height:9px;border-radius:5px;display:block}
+.pg-meters{display:flex;flex-direction:column;gap:15px}
+.pg-meter{margin-bottom:22px}
+.pg-meter .mh{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;color:var(--muted);margin-bottom:7px}
+.pg-meter .mh b{font-weight:400;font-size:18px;color:var(--ink);font-variant-numeric:tabular-nums}
+.pg-meter .mt,.pg-journey .mt{height:10px;border-radius:5px;background:var(--line);overflow:hidden}
+.pg-meter .mt i,.pg-journey .mt i{display:block;height:100%;border-radius:5px}
+.pg-keys{display:flex;gap:18px;margin-top:12px;font-size:12px;color:var(--muted);flex-wrap:wrap}
+.pg-keys>span{display:flex;align-items:center;gap:6px}
+.pg-keys i{width:14px;height:3px;border-radius:2px;display:block}
+.pg-stat{text-align:center}
+.pg-stat .n{font-size:30px;line-height:1.1;color:var(--ink);font-variant-numeric:tabular-nums}
+.pg-stat .n.up{color:var(--ok-ink)}
+.pg-stat .l{font-size:10px;color:var(--muted);margin-top:5px;letter-spacing:.07em;text-transform:uppercase;line-height:1.3}
+.pg-sec{padding-top:22px}
+.pg-sec + .pg-sec{margin-top:22px;border-top:1px solid var(--line)}
+.pg-sec h2{font-size:11px;font-weight:400;color:var(--muted);letter-spacing:.09em;text-transform:uppercase;margin:0 0 14px}
+.pg-grid{display:grid;grid-template-columns:18px repeat(12,1fr);gap:3px}
+.pg-grid .ax{display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums}
+.pg-grid .cell{aspect-ratio:1;border-radius:3px}
+.pg-grid .cell.off{border:1px dashed var(--line);background:transparent}
+.pg-grid .cell.band{box-shadow:0 0 0 1.5px rgba(108,176,67,0.6)}
+.pg-grid .ax.axdone{background:#6cb043;color:#15311e;border-radius:4px;font-weight:700}
+.pg-note{margin-top:14px;font-size:14px;color:var(--ink);line-height:1.5}
+.pg-legend{margin-top:12px;display:flex;align-items:center;gap:10px;font-size:10px;color:var(--muted);letter-spacing:.05em;text-transform:uppercase}
+.pg-key{display:flex;align-items:center;gap:5px;font-size:11px;margin-top:10px;color:var(--muted)}
+.pg-key i{width:11px;height:11px;border-radius:3px;border:1px dashed var(--line);display:block}
+.pg-chart{width:100%;overflow-x:auto}
+.pg-chart svg{display:block;width:100%;height:auto}
+.pg-foot{margin-top:10px;display:flex;justify-content:space-between;font-size:11px;color:var(--muted)}
+.pg-clear{margin-top:26px;text-align:center}
+`;
+(function(){
+  const st = document.createElement('style');
+  st.textContent = PG_CSS;
+  document.head.appendChild(st);
+  const d = document.createElement('div');
+  d.id = 'pg';
+  d.innerHTML = '<div class="wrap"><div class="top"><h1>Progress</h1><button id="pgclose" aria-label="Close">&times;</button></div><div id="pgbody"></div></div>';
+  document.body.appendChild(d);
+})();
+const pgEl = document.getElementById('pg');
+document.getElementById('pgclose').addEventListener('click', ()=>{ pgEl.style.display='none'; });
+
+
+const TIERCOL = ['', '#b4503c', '#dd8b33', '#e2c94f', '#6cb043'];   // approved palette
+
+function el(tag,cls,txt){
+  const e=document.createElement(tag);
+  if(cls)e.className=cls;
+  if(txt!==undefined)e.textContent=txt;
+  return e;
+}
+function dayStreak(){
+  if(!ST.h.length)return 0;
+  const days={}; ST.h.forEach(r=>{days[r.d]=1;});
+  let d=new Date(), s=0;
+  if(!days[dayKey(d)]){ d.setDate(d.getDate()-1); if(!days[dayKey(d)])return 0; }
+  while(days[dayKey(d)]){ s++; d.setDate(d.getDate()-1); }
+  return s;
+}
+function tableMastered(t){
+  for (let k=1;k<=12;k++) if (tierOf(t,k)!==4) return false;
+  return true;
+}
+
+/* ---------- badges ---------- */
+const GLYPHS = {
+  star:   '<path d="M12 3l2.5 5.4 5.9.6-4.4 4 1.2 5.8L12 15.9 6.8 18.8 8 13 3.6 9l5.9-.6z"/>',
+  bolt:   '<path d="M13 2L5 13h5l-2 9 9-12h-5z"/>',
+  flame:  '<path d="M12 2c1 4-3 5-3 9a4.5 4.5 0 009 0c0-2-1-3.5-2-5-.3 1.2-1 2-2 2.3C14.6 6.8 14 4 12 2z"/>',
+  cap:    '<path d="M12 4L2 9l10 5 8-4v5h2V9zM6 13v4c0 1.7 2.7 3 6 3s6-1.3 6-3v-4l-6 3z"/>',
+  compass:'<path d="M12 2a10 10 0 100 20 10 10 0 000-20zm4 6l-2.5 5.5L8 16l2.5-5.5z"/>',
+  trophy: '<path d="M6 3h12v2h3v3c0 2.5-2 4.5-4.5 4.9A6 6 0 0113 16.9V19h3v2H8v-2h3v-2.1a6 6 0 01-3.5-3.1C5 13.5 3 11.5 3 9V5h3zm-1 4v2c0 1.2.8 2.3 2 2.8V7zm14 0h-2v4.8c1.2-.5 2-1.6 2-2.8z"/>',
+  sun:    '<path d="M12 7a5 5 0 100 10 5 5 0 000-10zm0-6h0l1 4h-2zm0 18l1 4h-2zm11-8l-4 1v-2zM5 12l-4 1v-2zm14.8-7.8l-3.5 2.1-1.4-1.4zM8.1 19.1l-3.5 2.1 1.4 1.4zm11.3 2.1l-2.1-3.5 1.4-1.4zM6.7 4.9L4.6 8.4 3.2 7z"/>',
+};
+/* Badge families, NYT-style: every tier is its own medal. Each family
+   renders as one row — the next unearned medal (with progress) sits on
+   the left, earned medals shelve to the right, newest first. Rows are
+   ordered by when a player typically earns their first medal. */
+function medal(label, glyph, target, val, what){
+  return {label, glyph, target, val, earned: val>=target, what};
+}
+function badgeFamilies(){
+  const perf  = ST.h.filter(r=>r.n>0 && r.c===r.n).length;
+  const light = ST.h.filter(r=>r.n>0 && (r.q||0)===r.n).length;
+  const days  = Math.max(ST.rec.days||0, dayStreak());
+  const streak= ST.rec.streak||0;
+  const mc    = masteredCount();
+  // journey: graduates are sequential; Explorer floats alongside them
+  const grads = [
+    medal('Beginner Graduate','cap',LADDER_LEN.beginner,BESTS.beginner||0,'finish every beginner level'),
+    medal('Regular Graduate','cap',LADDER_LEN.regular,BESTS.regular||0,'finish every regular level'),
+    medal('Expert Graduate','cap',LADDER_LEN.expert,BESTS.expert||0,'finish every expert level'),
+  ];
+  const explorer = medal('Explorer','compass',ALLPAIRS.length,seenCount(),'answer every question at least once');
+  const firstGrad = grads.findIndex(m=>!m.earned);
+  const journey = [];
+  if (!explorer.earned) journey.push(explorer);
+  if (firstGrad>=0) journey.push(grads[firstGrad]);
+  const journeyEarned = [explorer,...grads].filter(m=>m.earned).reverse();
+  return [
+    {name:'Perfect',    seq:[1,5,25].map(t=>medal('Perfect ×'+t,'star',t,perf,'levels with every answer correct'))},
+    {name:'Lightning',  seq:[1,5,25].map(t=>medal('Lightning ×'+t,'bolt',t,light,'levels with every answer quick'))},
+    {name:'Hot Streak', seq:[10,25,50].map(t=>medal('Streak '+t,'flame',t,streak,'correct answers in a row'))},
+    {name:'Day Streak', seq:[3,7,30].map(t=>medal(t+'-Day Streak','sun',t,days,'days in a row'))},
+    {name:'Journey',    pending:journey, shelf:journeyEarned},
+    {name:'Champion',   seq:[20,40,60,78].map(t=>medal('Champion '+t,'trophy',t,mc,'multiplication facts mastered'))},
+  ];
+}
+function medalEl(m){
+  const d = el('div','pg-badge'+(m.earned?'':' locked'));
+  const med = el('div','med');
+  med.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true">'+GLYPHS[m.glyph]+'</svg>'+
+    '<span class="tn">'+m.target+'</span>';
+  d.appendChild(med);
+  d.appendChild(el('div','bn', m.label));
+  if (!m.earned){
+    const bp = el('div','bp'), f = el('i');
+    f.style.width = Math.round(_clamp(m.val/m.target,0,1)*100)+'%';
+    bp.appendChild(f);
+    d.appendChild(bp);
+    d.appendChild(el('div','bl', Math.min(m.val,m.target)+' / '+m.target));
+  }
+  d.title = m.what;
+  return d;
+}
+function familyRow(fam){
+  const row = el('div','pg-fam');
+  row.appendChild(el('h3',null,fam.name));
+  const strip = el('div','strip');
+  let pending, shelf;
+  if (fam.seq){
+    const idx = fam.seq.findIndex(m=>!m.earned);
+    pending = idx>=0 ? [fam.seq[idx]] : [];
+    shelf = fam.seq.filter(m=>m.earned).reverse();   // newest earned first
+  } else {
+    pending = fam.pending; shelf = fam.shelf;
+  }
+  pending.forEach(m=>strip.appendChild(medalEl(m)));
+  shelf.forEach(m=>strip.appendChild(medalEl(m)));
+  row.appendChild(strip);
+  return row;
+}
+
+/* ---------- page sections ---------- */
+function journeyRow(label, mode){
+  const row = el('div','pg-journey');
+  row.appendChild(el('span','jl', label));
+  const done = (BESTS[mode]||0) >= LADDER_LEN[mode];
+  const t = el('div','mt'), f = el('i');
+  const pc = _clamp((BESTS[mode]||0)/LADDER_LEN[mode], 0, 1);
+  f.style.width = Math.round(pc*100)+'%';
+  f.style.background = done ? TIERCOL[4] : '#e8b64c';
+  t.appendChild(f); row.appendChild(t);
+  row.appendChild(el('span','jv', done ? '\u2713' : (BESTS[mode]||0)+' / '+LADDER_LEN[mode]));
+  if (done) row.querySelector('.jv').classList.add('done');
+  return row;
+}
+function fmtDur(ms){
+  const s = Math.round(ms/1000);
+  return Math.floor(s/60)+':'+pad(s%60);
+}
+function buildGrid(){
+  const g=el('div','pg-grid');
+  const done={}; for(let t=1;t<=12;t++) done[t]=tableMastered(t);
+  g.appendChild(el('div','ax'));
+  for(let c=1;c<=12;c++) g.appendChild(el('div','ax'+(done[c]?' axdone':''), c));
+  for(let r=1;r<=12;r++){
+    g.appendChild(el('div','ax'+(done[r]?' axdone':''), r));
+    for(let c2=1;c2<=12;c2++){
+      const t=tierOf(r,c2);
+      const cell2=el('div','cell'+(t?'':' off')+((t&&(done[r]||done[c2]))?' band':''));
+      if(t){
+        cell2.style.background=TIERCOL[t];
+        const w=factWin(r,c2);
+        cell2.title=r+' \u00d7 '+c2+' \u2014 quick on '+w.qk+' of your last '+w.m+' answers';
+      } else {
+        cell2.title=r+' \u00d7 '+c2+' \u2014 not asked yet';
+      }
+      g.appendChild(cell2);
+    }
+  }
+  return g;
+}
+
+function showProgress(){
+  const body=document.getElementById('pgbody');
+  body.innerHTML='';
+
+  // your journey
+  const s1=el('div','pg-sec first');
+  s1.appendChild(el('h2',null,'Your journey'));
+  s1.appendChild(journeyRow('Beginner','beginner'));
+  s1.appendChild(journeyRow('Regular','regular'));
+  s1.appendChild(journeyRow('Expert','expert'));
+  body.appendChild(s1);
+
+  // records
+  const s2=el('div','pg-sec');
+  s2.appendChild(el('h2',null,'Records'));
+  const recs=el('div','pg-stats two');
+  const r1=el('div','pg-stat');
+  r1.appendChild(el('div','n', (ST.rec.streak||0)>0 ? ''+ST.rec.streak : '\u2014'));
+  r1.appendChild(el('div','l','Longest streak'));
+  const r2=el('div','pg-stat');
+  r2.appendChild(el('div','n', ST.rec.fast ? fmtDur(ST.rec.fast) : '\u2014'));
+  r2.appendChild(el('div','l','Fastest level'));
+  recs.appendChild(r1); recs.appendChild(r2);
+  s2.appendChild(recs);
+  body.appendChild(s2);
+
+  // badges: one row per family, next target on the left, trophies right
+  const s3=el('div','pg-sec');
+  s3.appendChild(el('h2',null,'Badges'));
+  badgeFamilies().forEach(f=>s3.appendChild(familyRow(f)));
+  body.appendChild(s3);
+
+  // mastery meter + grid
+  const s4=el('div','pg-sec');
+  s4.appendChild(el('h2',null,'Times table'));
+  const mm=el('div','pg-meter');
+  const mh2=el('div','mh');
+  mh2.appendChild(el('span',null,'Multiplication facts mastered'));
+  const mc=masteredCount();
+  mh2.appendChild(Object.assign(el('b'),{textContent:mc+' / '+ALLPAIRS.length}));
+  mm.appendChild(mh2);
+  const mt=el('div','mt'), mf=el('i');
+  mf.style.width=Math.round(mc/ALLPAIRS.length*100)+'%';
+  mf.style.background=TIERCOL[4];
+  mt.appendChild(mf); mm.appendChild(mt);
+  s4.appendChild(mm);
+  s4.appendChild(buildGrid());
+  const lg=el('div','pg-legend');
+  lg.appendChild(el('span',null,'Still practicing'));
+  const pills=el('span','pg-pills');
+  TIERCOL.slice(1).forEach(c=>{ const i2=el('i'); i2.style.background=c; pills.appendChild(i2); });
+  lg.appendChild(pills);
+  lg.appendChild(el('span',null,'Mastered'));
+  s4.appendChild(lg);
+  const kk=el('div','pg-key');
+  kk.appendChild(el('i')); kk.appendChild(el('span',null,'Not asked yet'));
+  s4.appendChild(kk);
+  body.appendChild(s4);
+
+  // clear
+  const cw2=el('div','pg-clear');
+  const cl=el('button','link','Clear my history');
+  cl.addEventListener('click',()=>{
+    if(confirm('Clear all your progress? This cannot be undone.')){
+      ST={f:{},h:[],rec:{streak:0,fast:0,days:0}}; saveStats();
+      for (const m of ['beginner','regular','expert']){
+        try{ localStorage.removeItem('ml-best-'+m); }catch(e){}
+        BESTS[m]=0;
+      }
+      pgEl.style.display='none';
+    }
+  });
+  cw2.appendChild(cl);
+  body.appendChild(cw2);
+
+  pgEl.style.display='block';
+  pgEl.scrollTop=0;
+}
+
+
+loadStats();
+BESTS = loadBests();
