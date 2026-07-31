@@ -36,7 +36,7 @@ canvas{display:block;width:100vw;height:100vh;height:100dvh}
 /* ---- progress overlay (styles ported from the quiz) ---- */
 #pg{
   --ink:#e8edf4; --muted:#94a1b2; --line:#2f3843; --ok-ink:#9fdcae;
-  --accent:#8ab6e0; --accent2:#b9a2e0; --m0:#b4503c; --m50:#d6a04a; --m100:#8ad69c;
+  --accent:#8ab6e0; --accent2:#b9a2e0; --m0:#b4503c; --m50:#dd8b33; --m100:#6cb043;
   display:none;position:fixed;inset:0;z-index:8;overflow-y:auto;background:#15191f;color:var(--ink);
   -webkit-user-select:text;user-select:text;touch-action:pan-y;
 }
@@ -52,7 +52,7 @@ canvas{display:block;width:100vw;height:100vh;height:100dvh}
 .pg-journey .jl{width:72px;font-size:14px;color:var(--ink)}
 .pg-journey .mt{flex:1}
 .pg-journey .jv{width:52px;text-align:right;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
-.pg-journey .jv.done{color:#8ad69c;font-size:17px}
+.pg-journey .jv.done{color:#6cb043;font-size:17px}
 .pg-fam{margin-bottom:16px}
 .pg-fam h3{font-size:10px;font-weight:400;color:var(--muted);letter-spacing:.09em;text-transform:uppercase;margin:0 0 8px}
 .pg-fam .strip{display:flex;gap:12px;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch}
@@ -76,7 +76,7 @@ canvas{display:block;width:100vw;height:100vh;height:100dvh}
 .pg-badge .bp{height:5px;border-radius:3px;background:var(--line);overflow:hidden;margin:5px 8px 3px}
 .pg-badge .bp i{display:block;height:100%;border-radius:3px;background:#e8b64c}
 .pg-badge .bl{font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums}
-.pg-badge .bl.done{color:#8ad69c}
+.pg-badge .bl.done{color:#6cb043}
 .pg-pills{display:flex;gap:5px;flex:1;justify-content:center}
 .pg-pills i{width:26px;height:9px;border-radius:5px;display:block}
 .pg-meters{display:flex;flex-direction:column;gap:15px}
@@ -98,8 +98,8 @@ canvas{display:block;width:100vw;height:100vh;height:100dvh}
 .pg-grid .ax{display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums}
 .pg-grid .cell{aspect-ratio:1;border-radius:3px}
 .pg-grid .cell.off{border:1px dashed var(--line);background:transparent}
-.pg-grid .cell.band{box-shadow:0 0 0 1.5px rgba(138,214,156,0.55)}
-.pg-grid .ax.axdone{background:#8ad69c;color:#15311e;border-radius:4px;font-weight:700}
+.pg-grid .cell.band{box-shadow:0 0 0 1.5px rgba(108,176,67,0.6)}
+.pg-grid .ax.axdone{background:#6cb043;color:#15311e;border-radius:4px;font-weight:700}
 .pg-note{margin-top:14px;font-size:14px;color:var(--ink);line-height:1.5}
 .pg-legend{margin-top:12px;display:flex;align-items:center;gap:10px;font-size:10px;color:var(--muted);letter-spacing:.05em;text-transform:uppercase}
 .pg-key{display:flex;align-items:center;gap:5px;font-size:11px;margin-top:10px;color:var(--muted)}
@@ -1593,12 +1593,12 @@ function drawMenu(){
     ctx.fillStyle='rgba(238,244,248,0.15)';
     rrect(px0, py, pw, 4, 2); ctx.fill();
     if (prog>0){
-      ctx.fillStyle = done ? GOOD : '#e8b64c';
+      ctx.fillStyle = done ? '#6cb043' : '#e8b64c';   // mastered green
       rrect(px0, py, Math.max(4, pw*prog), 4, 2); ctx.fill();
     }
     if (done){   // checkmark pinned to the button's corner
       const kx=x+mw-4, ky=my+4;
-      ctx.fillStyle=GOOD;
+      ctx.fillStyle='#6cb043';
       ctx.beginPath(); ctx.arc(kx, ky, 7.5, 0, 7); ctx.fill();
       ctx.strokeStyle='#15311e'; ctx.lineWidth=2.2; ctx.lineCap='round';
       ctx.beginPath();
@@ -1629,7 +1629,7 @@ function drawMenu(){
 const pgEl = document.getElementById('pg');
 document.getElementById('pgclose').addEventListener('click', ()=>{ pgEl.style.display='none'; });
 
-const TIERCOL = ['', '#b4503c', '#d6a04a', '#a9c06b', '#8ad69c'];
+const TIERCOL = ['', '#b4503c', '#dd8b33', '#e2c94f', '#6cb043'];   // approved palette
 
 function el(tag,cls,txt){
   const e=document.createElement(tag);
