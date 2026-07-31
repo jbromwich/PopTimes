@@ -43,6 +43,7 @@ canvas{display:block;width:100vw;height:100vh;height:100dvh}
 <script src="stats.js"></script>
 <script>
 'use strict';
+const APPVER = '2.0';   // major = feature, minor = fix
 /* ================================================================
    MULTIPLICATION LOADER — cargo-dock theme
    Orders ride a conveyor toward the sea. Tap the crate whose
@@ -1312,7 +1313,7 @@ function drawMenu(){
   ctx.fillStyle=DIM;
   ctx.font='600 '+Math.round(tfs*0.34)+'px ui-rounded, system-ui, sans-serif';
   ctx.textAlign='left';
-  ctx.fillText(VER, W/2 + ctx.measureText('Loader').width*1.55, y2+2);
+  ctx.fillText(APPVER, W/2 + ctx.measureText('Loader').width*1.55, y2+2);
   ctx.textAlign='center';
   ctx.font='600 '+Math.round(clamp(W*0.042,14,20))+'px ui-rounded, system-ui, sans-serif';
   ctx.fillText('Orders roll in. Tap the crate that matches.', W/2, H*0.445);

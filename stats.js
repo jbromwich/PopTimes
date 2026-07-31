@@ -33,7 +33,6 @@ const sWin = () => {   // brief level-complete fanfare
 function _clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 function pad(x){ return x<10?'0'+x:''+x; }
 function dayKey(d){ return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
-const VER = '1.0';
 // shared three-mode fact lists (same rules as the quiz):
 // expert = the original curated list; regular = all 144; beginner = the rest
 const EASY   = [2,3,4,5,10];
