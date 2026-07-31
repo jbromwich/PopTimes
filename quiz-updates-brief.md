@@ -7,6 +7,10 @@ games. Reference implementation for all of this is `loader.html`.
 ## Terminology
 - Objects: **factors** (the "a × b" card) and **product** (the quantity).
 - Skill levels: Beginner / Regular / Expert (already shared).
+- Student-facing wording: use **"questions" / "answers"** for play events
+  (badge descriptions, tooltips, streaks) and the full phrase
+  **"multiplication facts"** for the knowledge inventory (the mastery
+  meter and Champion-style counts). Never bare "facts".
 
 ## Mastery model (replace the quiz's lifetime formula)
 - Per fact, keep only the **last 10 attempts** as a window of outcomes:
@@ -19,16 +23,27 @@ games. Reference implementation for all of this is `loader.html`.
   crash-safety matters, numeric fidelity does not.
 
 ## Progress screen (mirror the Loader's)
-- Quantize the mastery grid to the 4 tier colors + dashed "not asked";
-  legend is 4 discrete pills with end labels **"Still practicing"** /
+- Quantize the mastery grid to the 4 approved tier colors + dashed
+  "not asked": **#b4503c → #dd8b33 → #e2c94f → #6cb043** (brick red,
+  orange, yellow, grass green). The grass green #6cb043 is the single
+  "mastered/complete" color everywhere (axis chips, band frames, meter
+  fills, completion checks).
+- Legend is 4 discrete pills with end labels **"Still practicing"** /
   **"Mastered"** (no per-pill labels).
 - Table mastery shown on the grid: green ✓ axis chip + subtle band frame
   when all 12 facts of a table are mastered.
-- Add "Facts mastered: X / 78" meter above the grid.
-- Remove/replace the smoothed line chart ("Improvement") with the shared
-  badge concept if desired, or drop it.
+- Add "Multiplication facts mastered: X / 78" meter above the grid, with
+  clear vertical space before the grid.
+- Remove the smoothed line chart ("Improvement").
+- Badges, if adopted in the quiz: use the Loader's NYT-style design —
+  every tier is its own medal; one horizontal row per family with the
+  next unearned medal (grey, progress meter + "x / y") on the left and
+  earned medals (gold) shelving right, newest first; rows ordered by
+  typical first-earn; a fully earned family shows no left target. Decide
+  whether quiz results feed the same badge counters (see shared storage)
+  or the quiz simply links to the Loader's progress page.
 - Keep quiz-specific bits that still make sense (per-test recap of missed
-  facts is fine — it's the quiz's equivalent of the reveal animation).
+  questions is fine — it's the quiz's equivalent of the reveal animation).
 
 ## Question selection
 - Replace lifetime least-asked + time-weighted picking with the Loader's
