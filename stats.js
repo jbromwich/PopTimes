@@ -207,6 +207,19 @@ const XLEVELS = [
 ];
 
 const LADDERS = {beginner:BLEVELS, regular:LEVELS, expert:XLEVELS};
+/* promotion gate: requirements ramp across each ladder —
+   60% correct / 10% quick at level 1, to 100% / 85% at the final rung
+   (85% matches the mastery bar); beyond the ladder it holds there */
+function levelGate(mode, i){
+  const L = LADDER_LEN[mode];
+  const t = _clamp(i/(L-1), 0, 1);
+  return {acc: 0.60 + 0.40*t, quick: 0.10 + 0.75*t};
+}
+function gateNeeded(mode, i, n){
+  const g = levelGate(mode, i);
+  return {needC: Math.round(g.acc*n), needQ: Math.round(g.quick*n)};
+}
+
 function ladderRung(mode, n){
   const list = LADDERS[mode];
   if (n < list.length) return list[n];

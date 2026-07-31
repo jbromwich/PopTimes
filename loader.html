@@ -40,10 +40,10 @@ canvas{display:block;width:100vw;height:100vh;height:100dvh}
 <a id="exit" href="index.html" title="Back to games" aria-label="Back to games">&times;</a>
 <button id="chart" title="Progress" aria-label="See your progress"><svg width="20" height="20" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 15V9M9 15V3M15 15v-4"/></svg></button>
 <div id="credit">by <a href="https://julianbromwich.com" target="_blank" rel="noopener">Julian Bromwich</a></div>
-<script src="stats.js?v=2"></script>
+<script src="stats.js?v=3"></script>
 <script>
 'use strict';
-const APPVER = '1.1';   // major = feature, minor = fix
+const APPVER = '1.2';   // major = feature, minor = fix
 /* ================================================================
    MULTIPLICATION LOADER — cargo-dock theme
    Orders ride a conveyor toward the sea. Tap the crate whose
@@ -513,10 +513,20 @@ function update(dt){
   if (G.scene==='payoff'){
     G.payT += dt;
     if (G.payT > 3.0){
-      G.level++;
-      if (G.level > (BESTS[G.pref]||0)){ BESTS[G.pref] = G.level; saveBest(G.pref); }
+      // promotion gate: the ship is loaded either way, but moving up
+      // demands this level's accuracy and quickness targets
+      const n = Math.max(1, G.lvlN);
+      const need = gateNeeded(G.pref, G.level, n);
+      const passed = G.lvlC >= need.needC && G.lvlQ >= need.needQ;
+      G.lvlGate = {passed, n, needC:need.needC, needQ:need.needQ};
+      if (passed){
+        G.level++;
+        if (G.level > (BESTS[G.pref]||0)){ BESTS[G.pref] = G.level; saveBest(G.pref); }
+        sWin();
+      } else {
+        sGood();   // the load itself still lands warmly
+      }
       G.scene='complete';   // rest point: waits for a tap
-      sWin();
     }
     return;
   }
@@ -664,38 +674,45 @@ function draw(){
 
 function drawComplete(){
   // the completed level's numbers are still in G.lvl* (next level not started)
-  const missed = (G.lvlLog||[]).slice(0,4);
-  const rows = missed.length ? missed.length+1 : 1;
-  const ph = 208 + rows*26;
+  const gate = G.lvlGate || {passed:true, n:Math.max(1,G.lvlN), needC:0, needQ:0};
+  const lvlNo = gate.passed ? G.level : G.level+1;   // level counter moved only on pass
+  const missed = (G.lvlLog||[]).slice(0,3);
+  const rows = missed.length ? missed.length+1 : 0;
+  const ph = 258 + rows*26;
   const y0 = H*0.42 - ph/2;
   ctx.fillStyle='rgba(8,16,24,0.85)';
   rrect(W*0.07, y0, W*0.86, ph, 14); ctx.fill();
   ctx.textAlign='center'; ctx.textBaseline='middle';
-  ctx.fillStyle='#6cb043';
+  ctx.fillStyle = gate.passed ? '#6cb043' : '#e8b64c';
   ctx.font='800 '+Math.round(clamp(W*0.07,22,34))+'px ui-rounded, system-ui, sans-serif';
-  ctx.fillText('Level '+G.level+' complete!', W/2, y0+38);
-  ctx.fillStyle=INK;
+  ctx.fillText(gate.passed ? 'Level '+lvlNo+' complete!' : 'Ship loaded!', W/2, y0+38);
+  // promotion checklist: this level's targets, met or not
   ctx.font='600 '+Math.round(clamp(W*0.042,14,19))+'px ui-rounded, system-ui, sans-serif';
-  ctx.fillText(G.lvlC+' of '+Math.max(1,G.lvlN)+' correct · '+G.lvlQ+' quick', W/2, y0+74);
-  let ly = y0+104;
+  const okC = G.lvlC>=gate.needC, okQ = G.lvlQ>=gate.needQ;
+  ctx.fillStyle = okC ? '#6cb043' : BAD;
+  ctx.fillText('Correct  '+G.lvlC+' / '+gate.n+'   (need '+gate.needC+')  '+(okC?'✓':'✗'), W/2, y0+76);
+  ctx.fillStyle = okQ ? '#6cb043' : BAD;
+  ctx.fillText('Quick  '+G.lvlQ+' / '+gate.n+'   (need '+gate.needQ+')  '+(okQ?'✓':'✗'), W/2, y0+104);
+  if (!gate.passed){
+    ctx.fillStyle=DIM;
+    ctx.fillText(okC ? 'Load faster to move up.' : 'Load more accurately to move up.', W/2, y0+132);
+  }
+  let ly = y0+(gate.passed?136:160);
   if (missed.length){
     ctx.fillStyle=DIM;
     ctx.fillText('Keep working on these:', W/2, ly); ly+=27;
     ctx.fillStyle=INK;
     for (const m of missed){ ctx.fillText(m.a+' × '+m.b+' = '+(m.a*m.b), W/2, ly); ly+=26; }
-  } else {
-    ctx.fillStyle='#6cb043';
-    ctx.fillText('Nothing missed this level', W/2, ly); ly+=27;
   }
-  // Next level button
+  // Next level / Try again button
   const bw=clamp(W*0.5,170,240), bh=clamp(H*0.056,42,52);
   const bx=(W-bw)/2, by=ly+14;
   G.compNext={x:bx,y:by,w:bw,h:bh};
-  ctx.fillStyle='#2f8f5b';
+  ctx.fillStyle = gate.passed ? '#2f8f5b' : '#a8752f';
   rrect(bx,by,bw,bh,bh/2); ctx.fill();
   ctx.fillStyle='#fff';
   ctx.font='800 '+Math.round(bh*0.42)+'px ui-rounded, system-ui, sans-serif';
-  ctx.fillText('Next level', W/2, by+bh/2+1);
+  ctx.fillText(gate.passed ? 'Next level' : 'Try again', W/2, by+bh/2+1);
   // progress link
   const lyy=by+bh+28;
   ctx.fillStyle=DIM;
