@@ -1680,7 +1680,7 @@ function badgeFamilies(){
     medal('Regular Graduate','cap',LADDER_LEN.regular,G.bests.regular||0,'finish every regular level'),
     medal('Expert Graduate','cap',LADDER_LEN.expert,G.bests.expert||0,'finish every expert level'),
   ];
-  const explorer = medal('Explorer','compass',ALLPAIRS.length,seenCount(),'try every fact once');
+  const explorer = medal('Explorer','compass',ALLPAIRS.length,seenCount(),'answer every question at least once');
   const firstGrad = grads.findIndex(m=>!m.earned);
   const journey = [];
   if (!explorer.earned) journey.push(explorer);
@@ -1692,7 +1692,7 @@ function badgeFamilies(){
     {name:'Hot Streak', seq:[10,25,50].map(t=>medal('Streak '+t,'flame',t,streak,'correct answers in a row'))},
     {name:'Day Streak', seq:[3,7,30].map(t=>medal(t+'-Day Streak','sun',t,days,'days in a row'))},
     {name:'Journey',    pending:journey, shelf:journeyEarned},
-    {name:'Champion',   seq:[20,40,60,78].map(t=>medal('Champion '+t,'trophy',t,mc,'facts mastered'))},
+    {name:'Champion',   seq:[20,40,60,78].map(t=>medal('Champion '+t,'trophy',t,mc,'multiplication facts mastered'))},
   ];
 }
 function medalEl(m){
@@ -1761,7 +1761,7 @@ function buildGrid(){
       if(t){
         cell2.style.background=TIERCOL[t];
         const w=factWin(r,c2);
-        cell2.title=r+' \u00d7 '+c2+' \u2014 quick on '+w.qk+' of last '+w.m;
+        cell2.title=r+' \u00d7 '+c2+' \u2014 quick on '+w.qk+' of your last '+w.m+' answers';
       } else {
         cell2.title=r+' \u00d7 '+c2+' \u2014 not asked yet';
       }
@@ -1808,7 +1808,7 @@ function showProgress(){
   s4.appendChild(el('h2',null,'Times table'));
   const mm=el('div','pg-meter');
   const mh2=el('div','mh');
-  mh2.appendChild(el('span',null,'Facts mastered'));
+  mh2.appendChild(el('span',null,'Multiplication facts mastered'));
   const mc=masteredCount();
   mh2.appendChild(Object.assign(el('b'),{textContent:mc+' / '+ALLPAIRS.length}));
   mm.appendChild(mh2);
