@@ -140,7 +140,6 @@ function seenCount(){
   return n;
 }
 /* per-skill ladder progress (levels completed on each mode's ladder) */
-const LADDER_LEN = {beginner:9, regular:20, expert:12};
 function loadBests(){
   const out={};
   for (const m of ['beginner','regular','expert'])
@@ -158,72 +157,72 @@ let BESTS = {beginner:0, regular:0, expert:0};
 function saveBest(mode){
   try{ localStorage.setItem('ml-best-'+mode, BESTS[mode]); }catch(e){}
 }
-const LEVELS = [
-  {tables:[2],        mode:'multiplying'},
-  {tables:[3],        mode:'multiplying'},
-  {tables:[2,3],      mode:'factoring'},
-  {tables:[4],        mode:'multiplying'},
-  {tables:[2,3,4],    mode:'factoring'},
-  {tables:[5],        mode:'multiplying'},
-  {tables:[3,4,5],    mode:'multiplying'},
-  {tables:[4,5],      mode:'factoring'},
-  {tables:[6],        mode:'multiplying'},
-  {tables:[4,5,6],    mode:'factoring'},
-  {tables:[7],        mode:'multiplying'},
-  {tables:[5,6,7],    mode:'multiplying'},
-  {tables:[6,7],      mode:'factoring'},
-  {tables:[8],        mode:'multiplying'},
-  {tables:[6,7,8],    mode:'factoring'},
-  {tables:[9],        mode:'multiplying'},
-  {tables:[7,8,9],    mode:'multiplying'},
-  {tables:[10,11],    mode:'multiplying'},
-  {tables:[11,12],    mode:'factoring'},
-  {tables:ALLT,       mode:'factoring'},
-];
-const BLEVELS = [
-  {tables:[2],           mode:'multiplying'},
-  {tables:[5],           mode:'multiplying'},
-  {tables:[2,5],         mode:'factoring'},
-  {tables:[3],           mode:'multiplying'},
-  {tables:[2,3,5],       mode:'factoring'},
-  {tables:[4],           mode:'multiplying'},
-  {tables:[3,4],         mode:'multiplying'},
-  {tables:[10],          mode:'multiplying'},
-  {tables:EASY,          mode:'factoring'},
-];
-const XLEVELS = [
-  {tables:[6],           mode:'multiplying'},
-  {tables:[7],           mode:'multiplying'},
-  {tables:[6,7],         mode:'factoring'},
-  {tables:[8],           mode:'multiplying'},
-  {tables:[6,7,8],       mode:'factoring'},
-  {tables:[9],           mode:'multiplying'},
-  {tables:[8,9],         mode:'multiplying'},
-  {tables:[7,8,9],       mode:'factoring'},
-  {tables:[12],          mode:'multiplying'},
-  {tables:[9,12],        mode:'factoring'},
-  {tables:[3,4,12],      mode:'multiplying'},
-  {tables:TRICKY,        mode:'factoring'},
-];
-
-const LADDERS = {beginner:BLEVELS, regular:LEVELS, expert:XLEVELS};
-/* promotion gate: requirements ramp across each ladder —
-   60% correct / 10% quick at level 1, to 100% / 85% at the final rung
-   (85% matches the mastery bar); beyond the ladder it holds there */
-function levelGate(mode, i){
-  const L = LADDER_LEN[mode];
-  const t = _clamp(i/(L-1), 0, 1);
-  return {acc: 0.60 + 0.40*t, quick: 0.10 + 0.75*t};
-}
-function gateNeeded(mode, i, n){
-  const g = levelGate(mode, i);
-  return {needC: Math.round(g.acc*n), needQ: Math.round(g.quick*n)};
-}
+/* ================================================================
+   CURRICULUM DEFINITIONS — mirrors curriculum.md exactly.
+   Each rung row: focus tables ([] = whole mode pool), question mode,
+   and promotion gate [accuracy%, quick%]. Edit the tables, not logic.
+   ================================================================ */
+const LADDERS = {
+  beginner: [   // easy facts only
+    {tables:[2],        mode:'multiplying', gate:[60,10]},
+    {tables:[5],        mode:'multiplying', gate:[60,10]},
+    {tables:[3],        mode:'multiplying', gate:[60,10]},
+    {tables:[4],        mode:'multiplying', gate:[60,10]},
+    {tables:[1,10,11],  mode:'multiplying', gate:[60,10]},
+    {tables:[],         mode:'factoring',   gate:[62,12]},
+    {tables:[],         mode:'multiplying', gate:[63,13]},
+    {tables:[],         mode:'factoring',   gate:[65,15]},
+    {tables:[],         mode:'multiplying', gate:[66,16]},
+    {tables:[],         mode:'factoring',   gate:[68,18]},
+    {tables:[],         mode:'multiplying', gate:[69,19]},
+    {tables:[],         mode:'factoring',   gate:[70,20]},
+  ],
+  regular: [    // all 144 facts; "full Ns" = easy + tricky halves
+    {tables:[2,3],      mode:'multiplying', gate:[70,20]},
+    {tables:[4,5],      mode:'multiplying', gate:[70,20]},
+    {tables:[2,3,4,5],  mode:'factoring',   gate:[70,20]},
+    {tables:[6],        mode:'multiplying', gate:[70,20]},
+    {tables:[7],        mode:'multiplying', gate:[70,20]},
+    {tables:[6,7],      mode:'factoring',   gate:[70,20]},
+    {tables:[8],        mode:'multiplying', gate:[70,20]},
+    {tables:[9],        mode:'multiplying', gate:[70,20]},
+    {tables:[8,9],      mode:'factoring',   gate:[70,20]},
+    {tables:[12],       mode:'multiplying', gate:[70,20]},
+    {tables:[],         mode:'factoring',   gate:[75,25]},
+    {tables:[],         mode:'multiplying', gate:[80,30]},
+  ],
+  expert: [     // tricky facts only; pure consolidation, no introductions
+    {tables:[], mode:'multiplying', gate:[80,30]},
+    {tables:[], mode:'factoring',   gate:[82,35]},
+    {tables:[], mode:'multiplying', gate:[84,40]},
+    {tables:[], mode:'factoring',   gate:[85,45]},
+    {tables:[], mode:'multiplying', gate:[87,50]},
+    {tables:[], mode:'factoring',   gate:[89,55]},
+    {tables:[], mode:'multiplying', gate:[91,60]},
+    {tables:[], mode:'factoring',   gate:[93,65]},
+    {tables:[], mode:'multiplying', gate:[95,70]},
+    {tables:[], mode:'factoring',   gate:[96,75]},
+    {tables:[], mode:'multiplying', gate:[98,80]},
+    {tables:[], mode:'factoring',   gate:[100,85]},
+  ],
+};
+const LADDER_LEN = {beginner:12, regular:12, expert:12};
 
 function ladderRung(mode, n){
   const list = LADDERS[mode];
   if (n < list.length) return list[n];
-  return {tables:[...new Set(modePairsFor(mode).flat())], mode: n%2 ? 'factoring' : 'multiplying'};
+  // beyond the ladder: endless mixed play, alternating modes,
+  // holding the final rung's gate
+  return {tables:[], mode: n%2 ? 'factoring' : 'multiplying',
+          gate: list[list.length-1].gate};
+}
+function levelGate(mode, i){
+  const g = ladderRung(mode, i).gate;
+  return {acc: g[0]/100, quick: g[1]/100};
+}
+function gateNeeded(mode, i, n){
+  const g = levelGate(mode, i);
+  return {needC: Math.round(g.acc*n), needQ: Math.round(g.quick*n)};
 }
 
 // tier-weighted selection: unseen facts come first; then practice
