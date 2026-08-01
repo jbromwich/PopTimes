@@ -88,7 +88,7 @@ body{
   <div id="opts"></div>
   <div id="fb"></div>
 </div>
-<script src="stats.js?v=10"></script>
+<script src="stats.js?v=11"></script>
 <script>
 /* Times-tables quiz on the shared PopTimes progression:
    levels are ladder rungs shared with the Loader — pass a test
@@ -193,6 +193,7 @@ function pick(v,btn,timedOut){
   recordOutcome(a,b, ok?(wasQuick?'q':'c'):'w');
   if(ok){
     c++;if(wasQuick)qc++;streak++;noteStreak(streak);consecW=0;
+    notePace(Date.now()-t0);   /* quiz questions are always multiplying */
     if(btn){btn.style.background='var(--ok-bg)';btn.style.color='var(--ok-ink)';}
     qa.textContent='= '+ans;qa.style.opacity='1';
   }else{
@@ -264,24 +265,6 @@ function finish(){
       :practice?'':(passed?'On to the next one.':(okC?'Answer faster to move up.':'Answer more accurately to move up.'));
     fb.appendChild(sub);
   }
-  if(!grad){
-    if(!log.length){
-      var d=document.createElement('div');
-      d.style.cssText='font-size:18px;text-align:center;color:var(--ok-ink);';
-      d.textContent='Nothing missed this round';
-      fb.appendChild(d);
-    }else{
-      var h=document.createElement('div');
-      h.style.cssText='font-size:16px;color:var(--muted);margin-bottom:8px;';
-      h.textContent='Keep working on these:';
-      fb.appendChild(h);
-      log.forEach(function(r){
-        var row=document.createElement('div');
-        row.className='row';row.textContent=r.q+' = '+r.ans;
-        fb.appendChild(row);
-      });
-    }
-  }
   var wrap=document.createElement('div');
   wrap.style.cssText='text-align:center;margin-top:22px;display:flex;flex-direction:column;gap:12px;align-items:center;';
   if(grad&&NEXTMODE[mode]){
@@ -311,6 +294,31 @@ function finish(){
   }
   lw.appendChild(iconBtn('See your progress','chart',function(){showProgress();}));
   fb.appendChild(lw);
+  /* missed recap last, below the buttons, two equations per row —
+     buttons never shift with the number of misses */
+  if(!grad){
+    if(!log.length){
+      var d=document.createElement('div');
+      d.style.cssText='font-size:18px;text-align:center;color:var(--ok-ink);margin-top:24px;';
+      d.textContent='Nothing missed this round';
+      fb.appendChild(d);
+    }else{
+      var h=document.createElement('div');
+      h.style.cssText='font-size:16px;color:var(--muted);margin:24px 0 8px;text-align:center;';
+      h.textContent='Keep working on these:';
+      fb.appendChild(h);
+      var gridw=document.createElement('div');
+      gridw.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:2px 12px;text-align:center;';
+      log.forEach(function(r){
+        var row=document.createElement('div');
+        row.style.cssText='font-size:20px;padding:8px 0;color:var(--ink);font-variant-numeric:tabular-nums;';
+        row.textContent=r.q+' = '+r.ans;
+        if(log.length%2===1&&r===log[log.length-1])row.style.gridColumn='1 / -1';
+        gridw.appendChild(row);
+      });
+      fb.appendChild(gridw);
+    }
+  }
   awardNewMedals(grad?1600:450);
 }
 function gateBarRow(label,val,n,need){
@@ -358,7 +366,7 @@ function welcome(){
   track.style.display='none';qrow.style.display='';
   chrome(false,true);
   qrow.style.gridTemplateColumns='1fr';q.style.textAlign='center';
-  q.innerHTML='<span class="brand">PopTimes</span><span class="ver">1.9</span><div class="subtitle">times tables quiz</div>';
+  q.innerHTML='<span class="brand">PopTimes</span><span class="ver">1.10</span><div class="subtitle">times tables quiz</div>';
   qa.textContent='';qa.style.opacity='0';
   opts.innerHTML='';opts.style.opacity='1';
   fb.innerHTML='';fb.style.textAlign='center';

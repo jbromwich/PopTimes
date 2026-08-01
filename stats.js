@@ -76,14 +76,14 @@ const WIN = 10;          // window size
 const MASTER_MIN = 6;    // attempts needed before "mastered" is reachable
 const MASTER_RATE = 5/6; // quick share required (5/6, 6/7, 7/8, 8/9, 9/10)
 const MAXHIST = 200;
-let ST = {f:{}, h:[], rec:{streak:0, fast:0, days:0}};
+let ST = {f:{}, h:[], rec:{streak:0, fast:0, days:0, pt:[], pace:0}};
 function loadStats(){
   try{
     const r = localStorage.getItem(SKEY);
     if (r){
       const o = JSON.parse(r);
       ST.f = o.f||{}; ST.h = o.h||[];
-      ST.rec = Object.assign({streak:0, fast:0, days:0}, o.rec);
+      ST.rec = Object.assign({streak:0, fast:0, days:0, pt:[], pace:0}, o.rec);
       return;
     }
     // migrate v1 lifetime counters: seed each window proportionally
@@ -102,7 +102,7 @@ function loadStats(){
       saveStats();
       localStorage.removeItem('ml-stats-v1');
     }
-  }catch(e){ ST = {f:{}, h:[], rec:{streak:0, fast:0, days:0}}; }
+  }catch(e){ ST = {f:{}, h:[], rec:{streak:0, fast:0, days:0, pt:[], pace:0}}; }
 }
 function saveStats(){ try{ localStorage.setItem(SKEY, JSON.stringify(ST)); }catch(e){} }
 function fkey(a,b){ return Math.min(a,b)+'x'+Math.max(a,b); }
@@ -121,6 +121,25 @@ function noteLevelResult(entry, opts){
 }
 function noteStreak(n){
   if (n > (ST.rec.streak||0)){ ST.rec.streak = n; saveStats(); }
+}
+/* ---- answer pace ----
+   Rolling window of the last PACE_WIN correct MULTIPLYING answer times
+   (ms, from answers-tappable to tap; both games pool into it; factoring
+   is excluded as inherently slower). Best pace = the lowest window
+   average ever, and only a full window can set it — one lucky instant
+   answer can't. Targets: Student 5s, Scholar 3s, Master 1.5s. */
+const PACE_WIN = 20;
+const PACE_SLOW = 10000, PACE_FAST = 1500;          // bar ends (ms)
+const PACE_TICKS = [[5000,'5s'],[3000,'3s'],[1500,'1.5s']];
+function notePace(ms){
+  if (!(ms>0) || ms>60000) return;                  // ignore junk samples
+  const r = ST.rec;
+  r.pt = (r.pt||[]).concat(Math.round(ms)).slice(-PACE_WIN);
+  if (r.pt.length===PACE_WIN){
+    const avg = Math.round(r.pt.reduce((a,b)=>a+b,0)/PACE_WIN);
+    if (!r.pace || avg < r.pace) r.pace = avg;
+  }
+  saveStats();
 }
 // window summary and the agreed tier grid:
 // 0 = never asked, 1 < 1/3 quick, 2 < 2/3, 3 < 5/6 (or too few attempts),
@@ -471,6 +490,10 @@ const PG_CSS = `/* ---- progress overlay (styles ported from the quiz) ---- */
 .pg-meter .mh b{font-weight:400;font-size:18px;color:var(--ink);font-variant-numeric:tabular-nums}
 .pg-meter .mt,.pg-journey .mt{height:10px;border-radius:5px;background:var(--line);overflow:hidden}
 .pg-meter .mt i,.pg-journey .mt i{display:block;height:100%;border-radius:5px}
+.pg-meter .mt.pace{position:relative;overflow:visible}
+.pg-meter .mt.pace i.tick{position:absolute;top:-3px;bottom:-3px;height:auto;width:2px;border-radius:1px;background:rgba(238,244,248,0.85)}
+.pg-pacelbls{position:relative;height:16px;margin-top:6px;font-size:10px;color:var(--muted);letter-spacing:.05em;text-transform:uppercase}
+.pg-pacelbls .t{position:absolute;transform:translateX(-50%)}
 .pg-keys{display:flex;gap:18px;margin-top:12px;font-size:12px;color:var(--muted);flex-wrap:wrap}
 .pg-keys>span{display:flex;align-items:center;gap:6px}
 .pg-keys i{width:14px;height:3px;border-radius:2px;display:block}
@@ -696,20 +719,6 @@ function showProgress(){
   s1.appendChild(journeyRow(MODENAME.expert,'expert'));
   body.appendChild(s1);
 
-  // records
-  const s2=el('div','pg-sec');
-  s2.appendChild(el('h2',null,'Records'));
-  const recs=el('div','pg-stats two');
-  const r1=el('div','pg-stat');
-  r1.appendChild(el('div','n', (ST.rec.streak||0)>0 ? ''+ST.rec.streak : '\u2014'));
-  r1.appendChild(el('div','l','Longest streak'));
-  const r2=el('div','pg-stat');
-  r2.appendChild(el('div','n', ST.rec.fast ? fmtDur(ST.rec.fast) : '\u2014'));
-  r2.appendChild(el('div','l','Fastest level'));
-  recs.appendChild(r1); recs.appendChild(r2);
-  s2.appendChild(recs);
-  body.appendChild(s2);
-
   // badges: one row per family, next target on the left, trophies right
   const s3=el('div','pg-sec');
   s3.appendChild(el('h2',null,'Badges'));
@@ -730,6 +739,36 @@ function showProgress(){
   mf.style.background=TIERCOL[4];
   mt.appendChild(mf); mm.appendChild(mt);
   s4.appendChild(mm);
+
+  // answer speed: best rolling-window pace toward the three title targets
+  const pm=el('div','pg-meter');
+  const ph2=el('div','mh');
+  ph2.appendChild(el('span',null,'Answer speed'));
+  const pace=ST.rec.pace||0;
+  ph2.appendChild(Object.assign(el('b'),{textContent: pace ? (pace/1000).toFixed(1).replace(/\.0$/,'')+'s per answer' : '—'}));
+  pm.appendChild(ph2);
+  const pt=el('div','mt pace');
+  const pf=el('i');
+  const pc2 = pace ? _clamp((PACE_SLOW-pace)/(PACE_SLOW-PACE_FAST),0,1) : 0;
+  pf.style.width=Math.round(pc2*100)+'%';
+  pf.style.background = pace && pace<=PACE_FAST ? TIERCOL[4] : '#e8b64c';
+  pt.appendChild(pf);
+  for (const [ms] of PACE_TICKS){
+    if (pace && pace<=ms) continue;              // reached ticks disappear
+    const tk=el('i','tick');
+    tk.style.left = Math.round((PACE_SLOW-ms)/(PACE_SLOW-PACE_FAST)*100)+'%';
+    pt.appendChild(tk);
+  }
+  pm.appendChild(pt);
+  const pl=el('div','pg-pacelbls');
+  pl.appendChild(el('span',null,'slower'));
+  for (const [ms,lbl] of PACE_TICKS){
+    const s=el('span','t',lbl);
+    s.style.left = Math.round((PACE_SLOW-ms)/(PACE_SLOW-PACE_FAST)*100)+'%';
+    pl.appendChild(s);
+  }
+  pm.appendChild(pl);
+  s4.appendChild(pm);
   s4.appendChild(buildGrid());
   const lg=el('div','pg-legend');
   lg.appendChild(el('span',null,'Still practicing'));
@@ -755,7 +794,7 @@ function showProgress(){
   const cl=el('button','link','Clear my history');
   cl.addEventListener('click',()=>{
     if(confirm('Clear all your progress? This cannot be undone.')){
-      ST={f:{},h:[],rec:{streak:0,fast:0,days:0}}; saveStats();
+      ST={f:{},h:[],rec:{streak:0,fast:0,days:0,pt:[],pace:0}}; saveStats();
       for (const m of ['beginner','regular','expert']){
         try{ localStorage.removeItem('ml-best-'+m); }catch(e){}
         BESTS[m]=0;

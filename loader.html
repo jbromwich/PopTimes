@@ -52,10 +52,10 @@ canvas{display:block;width:100vw;height:100vh;height:100dvh}
 <button id="share" title="Share" aria-label="Share"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M8 7l4-4 4 4M5 12v8a1 1 0 001 1h12a1 1 0 001-1v-8"/></svg></button>
 <button id="chart" title="Progress" aria-label="See your progress"><svg width="20" height="20" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 15V9M9 15V3M15 15v-4"/></svg></button>
 <div id="credit">by <a href="https://julianbromwich.com" target="_blank" rel="noopener">Julian Bromwich</a></div>
-<script src="stats.js?v=10"></script>
+<script src="stats.js?v=11"></script>
 <script>
 'use strict';
-const APPVER = '1.9';   // major = feature, minor = fix
+const APPVER = '1.10';   // major = feature, minor = fix
 /* ================================================================
    MULTIPLICATION LOADER — cargo-dock theme
    Orders ride a conveyor toward the sea. Tap the crate whose
@@ -171,7 +171,10 @@ const G = {
 function factorMax(){ return 12; }
 
 /* ---------- pacing ---------- */
-function orderTravelTime(){ return 16 - 9.5*G.pace; }        // seconds across belt
+function orderTravelTime(){                                  // seconds across belt
+  // factoring reads slower (product → factor pair), so the belt eases off
+  return (16 - 9.5*G.pace) * (G.mode==='factoring' ? 1.15 : 1);
+}
 function orderSpacing(){ return 0.42 - 0.12*G.pace; }        // fraction of belt between cards
 // each level raises the minimum pace — misses ease off, but never below this
 function effLevel(){ return Math.min(G.level, LADDER_LEN[G.pref]-1); }   // practice holds at the final rung
@@ -249,6 +252,7 @@ function nearMisses(a,b){
 
 function buildRound(){
   const o = G.orders[0];
+  if (o && o !== G.roundFor) G.qT0 = performance.now();   // answers become tappable now
   G.roundFor = o || null;
   if (!o){ G.cands=[]; return; }
   const n = 4;
@@ -401,6 +405,7 @@ function tapCandidate(c){
   // for the stats: reaction time, and "quick" = tapped in the belt's first stretch
   // "quick" = answered while the order was still calm (before the wobble)
   G.tapQuick = o.p < 0.66;
+  G.tapAt = performance.now();   // for the pace window (multiplying only)
 
   if (G.mode==='multiplying'){
     // orient the order's strips to the chosen crate
@@ -447,6 +452,7 @@ function finishTiling(){
   const A = G.anim, o = G.orders[0];
   if (A.ok){
     recordFact(o.a, o.b, G.tapQuick ? 'q' : 'c');
+    if (G.mode==='multiplying' && G.qT0) notePace(G.tapAt - G.qT0);
     sGood(); sPour();
     // the order card rides down into the hold with its cargo
     const cp = animCardPos(A);
@@ -708,7 +714,6 @@ function draw(){
   drawHold();
   drawParticles();
   drawFx();
-  if (G.scene==='payoff') drawPayoff();
   if (G.scene==='broken') drawBroken();
   if (G.scene==='complete') drawComplete();
   ctx.restore();
@@ -721,11 +726,31 @@ function drawComplete(){
   // the completed level's numbers are still in G.lvl* (next level not started)
   const gate = G.lvlGate || {passed:true, n:Math.max(1,G.lvlN), needC:0, needQ:0};
   const lvlNo = gate.passed && !gate.practice ? G.level : G.level+1;
-  const missed = gate.grad ? [] : (G.lvlLog||[]).slice(0,3);
-  const rows = missed.length ? missed.length+1 : 0;
+  const missed = gate.grad ? [] : (G.lvlLog||[]).slice(0,4);
+  const recRows = Math.ceil(missed.length/2);
   const twoBtns = gate.grad && NEXTMODE[G.pref];
-  const ph = (gate.grad?258:300) + rows*26 + (twoBtns?62:0) + (gate.grad?28+46:0);
+  const bh = clamp(H*0.056,42,52);
+  const failHint = !gate.passed && !gate.practice;
+
+  // measure first: walk the layout with a cursor so the card always
+  // wraps its content exactly (buttons never shift — recap sits last)
+  let y = 62;                                 // heading baseline is 38
+  const P = {};
+  if (gate.grad){ P.dip1=y+16; P.dip2=y+44; y+=78; }
+  else {
+    P.bar1=y+4; P.bar2=y+54; y+=104;
+    if (failHint){ P.hint=y+8; y+=26; }
+    y+=6;
+  }
+  y+=14;
+  if (twoBtns){ P.move=y; y+=bh+14; }
+  P.next=y; y+=bh+16;
+  if (gate.grad){ P.share=y; y+=46; }
+  P.prog=y; y+=36;
+  if (missed.length){ P.recH=y+26; P.rec=y+52; y+=26+recRows*26+10; }
+  const ph = y+20;
   const y0 = H*0.42 - ph/2;
+
   ctx.fillStyle='rgba(8,16,24,0.85)';
   rrect(W*0.07, y0, W*0.86, ph, 14); ctx.fill();
   ctx.textAlign='center'; ctx.textBaseline='middle';
@@ -734,64 +759,59 @@ function drawComplete(){
   ctx.fillText(
     gate.grad ? 'You’re now a '+GRAD_TITLE[G.pref]+'!' :
     gate.practice ? (gate.passed ? 'Great practice!' : 'Practice done!') :
-    gate.passed ? 'Level '+lvlNo+' complete!' : 'Ship loaded!', W/2, y0+38);
+    gate.passed ? 'Level '+lvlNo+' complete!' : 'Level '+lvlNo+' — not yet', W/2, y0+38);
   ctx.font='600 '+Math.round(clamp(W*0.042,14,19))+'px ui-rounded, system-ui, sans-serif';
-  let ly;
   if (gate.grad){
     // a personal line for the diploma
     const perf = ST.h.filter(r=>r.m===G.pref && r.n>0 && r.c===r.n).length;
     ctx.fillStyle=INK;
-    ctx.fillText('All '+LADDER_LEN[G.pref]+' levels cleared', W/2, y0+78);
+    ctx.fillText('All '+LADDER_LEN[G.pref]+' levels cleared', W/2, y0+P.dip1);
     ctx.fillStyle=DIM;
-    ctx.fillText(perf+' perfect · best streak '+(ST.rec.streak||0), W/2, y0+106);
-    ly = y0+140;
+    ctx.fillText(perf+' perfect · best streak '+(ST.rec.streak||0), W/2, y0+P.dip2);
   } else {
-    // promotion gate bars: fill = your answers, tick = the gate.
-    // Green past the tick, amber short of it; the track is darker
-    // below the tick so the threshold reads even on a full bar.
-    const okC = G.lvlC>=gate.needC, okQ = G.lvlQ>=gate.needQ;
-    gateBar('Correct', G.lvlC, gate.n, gate.needC, y0+66);
-    gateBar('Quick',   G.lvlQ, gate.n, gate.needQ, y0+116);
-    if (!gate.passed && !gate.practice){
+    // promotion gate bars: fill = your answers, tick = the (unmet) gate
+    const okC = G.lvlC>=gate.needC;
+    gateBar('Correct', G.lvlC, gate.n, gate.needC, y0+P.bar1);
+    gateBar('Quick',   G.lvlQ, gate.n, gate.needQ, y0+P.bar2);
+    if (failHint){
       ctx.textAlign='center'; ctx.fillStyle=DIM;
       ctx.font='600 '+Math.round(clamp(W*0.042,14,19))+'px ui-rounded, system-ui, sans-serif';
-      ctx.fillText(okC ? 'Load faster to move up.' : 'Load more accurately to move up.', W/2, y0+176);
+      ctx.fillText(okC ? 'Answer faster to move up.' : 'Answer more accurately to move up.', W/2, y0+P.hint);
     }
-    ly = y0+((gate.passed||gate.practice)?168:196);
   }
-  if (missed.length){
-    ctx.fillStyle=DIM;
-    ctx.fillText('Keep working on these:', W/2, ly); ly+=27;
-    ctx.fillStyle=INK;
-    for (const m of missed){ ctx.fillText(m.a+' × '+m.b+' = '+(m.a*m.b), W/2, ly); ly+=26; }
-  }
-  // buttons
-  const bw=clamp(W*0.56,190,260), bh=clamp(H*0.056,42,52);
-  const bx=(W-bw)/2; let by=ly+14;
+  // buttons (fixed position regardless of the recap below)
+  const bw=clamp(W*0.56,190,260), bx=(W-bw)/2;
   G.compMove=null;
   if (twoBtns){
-    G.compMove={x:bx,y:by,w:bw,h:bh};
+    G.compMove={x:bx,y:y0+P.move,w:bw,h:bh};
     ctx.fillStyle='#2f8f5b';
-    rrect(bx,by,bw,bh,bh/2); ctx.fill();
+    rrect(bx,y0+P.move,bw,bh,bh/2); ctx.fill();
     ctx.fillStyle='#fff';
     ctx.font='800 '+Math.round(bh*0.40)+'px ui-rounded, system-ui, sans-serif';
-    ctx.fillText('Continue as '+GRAD_TITLE[G.pref], W/2, by+bh/2+1);
-    by += bh+14;
+    ctx.fillText('Continue as '+GRAD_TITLE[G.pref], W/2, y0+P.move+bh/2+1);
   }
-  G.compNext={x:bx,y:by,w:bw,h:bh};
+  G.compNext={x:bx,y:y0+P.next,w:bw,h:bh};
   ctx.fillStyle = gate.grad ? '#3a6ea5' : (gate.practice||gate.passed) ? '#2f8f5b' : '#a8752f';
-  rrect(bx,by,bw,bh,bh/2); ctx.fill();
+  rrect(bx,y0+P.next,bw,bh,bh/2); ctx.fill();
   ctx.fillStyle='#fff';
   ctx.font='800 '+Math.round(bh*0.40)+'px ui-rounded, system-ui, sans-serif';
-  ctx.fillText(gate.grad||gate.practice ? 'Keep practising' : gate.passed ? 'Next level' : 'Try again', W/2, by+bh/2+1);
+  ctx.fillText(gate.grad||gate.practice ? 'Keep practising'
+    : gate.passed ? 'Next level' : 'Try level '+lvlNo+' again', W/2, y0+P.next+bh/2+1);
   // secondary buttons: share (graduations only) + progress, icon-labelled
-  let lyy=by+bh+16;
-  G.compShare=null;
-  if (gate.grad){
-    G.compShare=iconBtn('Share the news','share',lyy);
-    lyy += 46;
+  G.compShare = gate.grad ? iconBtn('Share the news','share',y0+P.share) : null;
+  G.compProg = iconBtn('See your progress','chart',y0+P.prog);
+  // missed recap, two equations per row, at the very bottom
+  if (missed.length){
+    ctx.font='600 '+Math.round(clamp(W*0.042,14,19))+'px ui-rounded, system-ui, sans-serif';
+    ctx.textAlign='center'; ctx.fillStyle=DIM;
+    ctx.fillText('Keep working on these:', W/2, y0+P.recH);
+    ctx.fillStyle=INK;
+    missed.forEach((m,i)=>{
+      const lastAlone = (i===missed.length-1) && (missed.length%2===1);
+      const x = lastAlone ? W/2 : (i%2===0 ? W/2-W*0.19 : W/2+W*0.19);
+      ctx.fillText(m.a+' × '+m.b+' = '+(m.a*m.b), x, y0+P.rec+Math.floor(i/2)*26);
+    });
   }
-  G.compProg=iconBtn('See your progress','chart',lyy);
   // in-card exit
   G.compX=cardX(W*0.93-24, y0+24);
 }
@@ -1441,18 +1461,9 @@ function drawHUD(){
   }
 }
 
-/* ---------- payoff + menu ---------- */
-function drawPayoff(){
-  const k = clamp(G.payT/0.6, 0, 1);
-  ctx.globalAlpha = k*(G.payT>2.5 ? clamp((3.0-G.payT)/0.5,0,1) : 1);
-  ctx.fillStyle=INK; ctx.textAlign='center'; ctx.textBaseline='middle';
-  ctx.font='800 '+Math.round(clamp(W*0.08,26,44))+'px ui-rounded, system-ui, sans-serif';
-  ctx.fillText('Ship loaded!', W/2, H*0.42);
-  ctx.fillStyle=DIM;
-  ctx.font='600 '+Math.round(clamp(W*0.045,15,22))+'px ui-rounded, system-ui, sans-serif';
-  ctx.fillText((inPractice() ? 'Well practised' : 'Level '+(G.level+1)+' complete')+' — next ship docking…', W/2, H*0.42+44);
-  ctx.globalAlpha=1;
-}
+/* ---------- menu ---------- */
+// (the payoff scene shows no banner text: the sail-away animation is
+// the moment, and the completion card that follows does the talking)
 
 let menuOrders = null;
 function drawMenu(){
