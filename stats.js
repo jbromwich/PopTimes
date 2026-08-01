@@ -738,7 +738,6 @@ function showProgress(){
   mf.style.width=Math.round(mc/ALLPAIRS.length*100)+'%';
   mf.style.background=TIERCOL[4];
   mt.appendChild(mf); mm.appendChild(mt);
-  s4.appendChild(mm);
 
   // answer speed: best rolling-window pace toward the three title targets
   const pm=el('div','pg-meter');
@@ -768,7 +767,8 @@ function showProgress(){
     pl.appendChild(s);
   }
   pm.appendChild(pl);
-  s4.appendChild(pm);
+  s4.appendChild(pm);          // speed first…
+  s4.appendChild(mm);          // …then the mastery meter, touching its grid
   s4.appendChild(buildGrid());
   const lg=el('div','pg-legend');
   lg.appendChild(el('span',null,'Still practicing'));
