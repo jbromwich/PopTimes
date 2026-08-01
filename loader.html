@@ -52,10 +52,10 @@ canvas{display:block;width:100vw;height:100vh;height:100dvh}
 <button id="share" title="Share" aria-label="Share"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M8 7l4-4 4 4M5 12v8a1 1 0 001 1h12a1 1 0 001-1v-8"/></svg></button>
 <button id="chart" title="Progress" aria-label="See your progress"><svg width="20" height="20" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 15V9M9 15V3M15 15v-4"/></svg></button>
 <div id="credit">by <a href="https://julianbromwich.com" target="_blank" rel="noopener">Julian Bromwich</a></div>
-<script src="stats.js?v=10"></script>
+<script src="stats.js?v=8"></script>
 <script>
 'use strict';
-const APPVER = '1.9';   // major = feature, minor = fix
+const APPVER = '1.7';   // major = feature, minor = fix
 /* ================================================================
    MULTIPLICATION LOADER — cargo-dock theme
    Orders ride a conveyor toward the sea. Tap the crate whose
@@ -192,6 +192,10 @@ function newFact(maxP){
 // record an outcome and update this level's counters
 function recordFact(a,b,res){
   recordOutcome(a,b,res);
+  // the badge/record streak spans levels (like the quiz); only a miss
+  // resets it. The on-screen combo stays per-ship — separate counter.
+  if (res==='w') G.streak = 0;
+  else { G.streak = (G.streak||0) + 1; noteStreak(G.streak); }
   G.lvlN++; if(res!=='w')G.lvlC++; if(res==='q')G.lvlQ++;
   if (res==='w' && !(G.lvlLog||[]).some(m=>m.k===fkey(a,b)))
     (G.lvlLog=G.lvlLog||[]).push({k:fkey(a,b), a, b});
@@ -340,7 +344,6 @@ function startLevel(keepBelt){
 function fulfilOrder(){
   G.orders.shift();
   G.combo++;
-  noteStreak(G.combo);
   G.missRow = 0;
   G.pace = clamp(G.pace + 0.045, paceFloor(), 1);
   // no dead time: the next order must be FULLY on screen and readable —
