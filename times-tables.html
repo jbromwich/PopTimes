@@ -243,7 +243,7 @@ function finish(){
   p.style.cssText='font-size:22px;color:var(--ink);margin-bottom:8px;text-align:center;';
   p.textContent=grad?('You’re now a '+GRAD_TITLE[mode]+'!')
     :practice?(passed?'Great practice!':'Practice done!')
-    :passed?('Level '+(level+1)+' passed!'):('Level '+(level+1)+' \u2014 not yet');
+    :passed?('Level '+(level+1)+' passed!'):('Level '+(level+1)+' not passed yet');
   fb.appendChild(p);
   if(grad){
     var perf=ST.h.filter(function(r){return r.m===mode&&r.n>0&&r.c===r.n;}).length;

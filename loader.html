@@ -759,7 +759,7 @@ function drawComplete(){
   ctx.fillText(
     gate.grad ? 'You’re now a '+GRAD_TITLE[G.pref]+'!' :
     gate.practice ? (gate.passed ? 'Great practice!' : 'Practice done!') :
-    gate.passed ? 'Level '+lvlNo+' complete!' : 'Level '+lvlNo+' — not yet', W/2, y0+38);
+    gate.passed ? 'Level '+lvlNo+' complete!' : 'Level '+lvlNo+' not passed yet', W/2, y0+38);
   ctx.font='600 '+Math.round(clamp(W*0.042,14,19))+'px ui-rounded, system-ui, sans-serif';
   if (gate.grad){
     // a personal line for the diploma

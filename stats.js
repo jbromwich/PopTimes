@@ -130,7 +130,7 @@ function noteStreak(n){
    answer can't. Targets: Student 5s, Scholar 3s, Master 1.5s. */
 const PACE_WIN = 20;
 const PACE_SLOW = 10000, PACE_FAST = 1500;          // bar ends (ms)
-const PACE_TICKS = [[5000,'5s'],[3000,'3s'],[1500,'1.5s']];
+const PACE_TICKS = [[5000,'5'],[3000,'3'],[1500,'1.5']];
 function notePace(ms){
   if (!(ms>0) || ms>60000) return;                  // ignore junk samples
   const r = ST.rec;
