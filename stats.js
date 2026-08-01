@@ -566,7 +566,7 @@ function badgeFamilies(){
     {name:'Hot Streak', seq:[10,25,50].map(t=>medal('Streak '+t,'flame',t,streak,'correct answers in a row'))},
     {name:'Day Streak', seq:[3,7,30].map(t=>medal(t+'-Day Streak','sun',t,days,'days in a row'))},
     {name:'Journey',    pending:journey, shelf:journeyEarned},
-    {name:'Champion',   seq:[20,40,60,78].map(t=>medal('Champion '+t,'trophy',t,mc,'multiplication facts mastered'))},
+    {name:'Multiplication facts mastered', seq:[20,40,60,78].map(t=>medal(t+' mastered','trophy',t,mc,'multiplication facts mastered'))},
   ];
 }
 function medalEl(m){
