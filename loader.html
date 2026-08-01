@@ -734,13 +734,13 @@ function drawComplete(){
 
   // measure first: walk the layout with a cursor so the card always
   // wraps its content exactly (buttons never shift — recap sits last)
-  let y = 62;                                 // heading baseline is 38
+  let y = 70;                                 // heading baseline is 38
   const P = {};
-  if (gate.grad){ P.dip1=y+16; P.dip2=y+44; y+=78; }
+  if (gate.grad){ P.dip1=y+8; P.dip2=y+36; y+=70; }
   else {
-    P.bar1=y+4; P.bar2=y+54; y+=104;
-    if (failHint){ P.hint=y+8; y+=26; }
-    y+=6;
+    P.bar1=y+4; P.bar2=y+66; y+=128;
+    if (failHint){ P.hint=y+12; y+=30; }
+    y+=8;
   }
   y+=14;
   if (twoBtns){ P.move=y; y+=bh+14; }
@@ -819,7 +819,7 @@ function drawComplete(){
 // one gate-progress row: label + count above, bar with threshold tick below
 function gateBar(label, val, n, need, y){
   const x0=W*0.16, bw=W*0.68, bh=10;
-  ctx.font='600 '+Math.round(clamp(W*0.04,13,17))+'px ui-rounded, system-ui, sans-serif';
+  ctx.font='600 '+Math.round(clamp(W*0.038,13,16))+'px ui-rounded, system-ui, sans-serif';
   ctx.textBaseline='middle';
   ctx.textAlign='left';  ctx.fillStyle=DIM; ctx.fillText(label, x0, y);
   ctx.textAlign='right'; ctx.fillStyle=INK; ctx.fillText(val+' / '+n, x0+bw, y);
