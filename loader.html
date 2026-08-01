@@ -55,7 +55,7 @@ canvas{display:block;width:100vw;height:100vh;height:100dvh}
 <script src="stats.js?v=12"></script>
 <script>
 'use strict';
-const APPVER = '1.11';   // major = feature, minor = fix
+const APPVER = '1.12';   // major = feature, minor = fix
 /* ================================================================
    MULTIPLICATION LOADER — cargo-dock theme
    Orders ride a conveyor toward the sea. Tap the crate whose
@@ -252,7 +252,9 @@ function nearMisses(a,b){
 
 function buildRound(){
   const o = G.orders[0];
-  if (o && o !== G.roundFor) G.qT0 = performance.now();   // answers become tappable now
+  // pace clock: starts only once the order is readable (p >= 0.32) —
+  // if it's still gliding in, the update loop starts it on arrival
+  if (o && o !== G.roundFor) G.qT0 = o.p >= 0.32 ? performance.now() : 0;
   G.roundFor = o || null;
   if (!o){ G.cands=[]; return; }
   const n = 4;
@@ -342,6 +344,10 @@ function startLevel(keepBelt){
   // the next level's orders queue up behind them
   if (!keepBelt) G.orders = [];
   if (!G.orders.length) spawnOrder(0.10);
+  // the level's first order glides briskly to the readable point,
+  // just like the next-up card does after a correct answer
+  if (G.orders[0] && G.orders[0].p < 0.30)
+    G.orders[0].kv = (0.30 - G.orders[0].p) / 0.2;
   buildRound();
 }
 
@@ -629,6 +635,9 @@ function update(dt){
   }
   // a new order has reached the front → deal fresh candidates
   if (G.phase==='aim' && G.orders[0] !== G.roundFor) buildRound();
+  // the pace clock starts when the front order becomes readable
+  if (G.phase==='aim' && !G.qT0 && G.orders[0] && G.orders[0].p >= 0.32)
+    G.qT0 = performance.now();
   // expiry: front order falls off the dock
   const front = G.orders[0];
   if (front && front.p >= 1 && G.phase==='aim'){
