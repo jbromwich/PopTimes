@@ -24,6 +24,12 @@ logic.
   So a player arriving with prior progress is automatically steered to
   what they haven't mastered — same ladder, personalized questions.
 - All three skill levels are open from the start; nothing is locked.
+- **Student-facing names**: the skill levels are shown as **Student**
+  (beginner), **Scholar** (regular) and **Master** (expert) — named
+  after the title you hold while playing them. Everyone starts as a
+  Student; completing a ladder earns the next title: Scholar, Master,
+  and finally **Professor** (Expert ladder). Storage keys keep the
+  internal names beginner/regular/expert.
 - Question modes: **mult** = multiplying (factors given, pick the
   product), **fact** = factoring (product given, pick the factors).
 

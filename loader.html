@@ -8,6 +8,11 @@
 <meta name="theme-color" content="#0e2233">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
+<meta property="og:title" content="Multiplication Loader — PopTimes">
+<meta property="og:description" content="Tap the matching crate and load the cargo ship. A fun way to master the times tables.">
+<meta property="og:url" content="https://jbromwich.github.io/PopTimes/loader.html">
+<meta property="og:image" content="https://jbromwich.github.io/PopTimes/icons/icon-512.png">
+<meta property="og:type" content="website">
 <title>Multiplication Loader</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -40,10 +45,10 @@ canvas{display:block;width:100vw;height:100vh;height:100dvh}
 <a id="exit" href="index.html" title="Back to games" aria-label="Back to games">&times;</a>
 <button id="chart" title="Progress" aria-label="See your progress"><svg width="20" height="20" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 15V9M9 15V3M15 15v-4"/></svg></button>
 <div id="credit">by <a href="https://julianbromwich.com" target="_blank" rel="noopener">Julian Bromwich</a></div>
-<script src="stats.js?v=5"></script>
+<script src="stats.js?v=6"></script>
 <script>
 'use strict';
-const APPVER = '1.4';   // major = feature, minor = fix
+const APPVER = '1.5';   // major = feature, minor = fix
 /* ================================================================
    MULTIPLICATION LOADER — cargo-dock theme
    Orders ride a conveyor toward the sea. Tap the crate whose
@@ -685,7 +690,7 @@ function draw(){
 }
 
 const NEXTMODE = {beginner:'regular', regular:'expert'};
-const MODENAME = {beginner:'Beginner', regular:'Regular', expert:'Expert'};
+// display names (MODENAME) and graduation titles (GRAD_TITLE) live in stats.js
 
 function drawComplete(){
   // the completed level's numbers are still in G.lvl* (next level not started)
@@ -694,7 +699,7 @@ function drawComplete(){
   const missed = gate.grad ? [] : (G.lvlLog||[]).slice(0,3);
   const rows = missed.length ? missed.length+1 : 0;
   const twoBtns = gate.grad && NEXTMODE[G.pref];
-  const ph = 258 + rows*26 + (twoBtns?62:0) + (gate.grad?28:0);
+  const ph = 258 + rows*26 + (twoBtns?62:0) + (gate.grad?28+36:0);
   const y0 = H*0.42 - ph/2;
   ctx.fillStyle='rgba(8,16,24,0.85)';
   rrect(W*0.07, y0, W*0.86, ph, 14); ctx.fill();
@@ -702,7 +707,7 @@ function drawComplete(){
   ctx.fillStyle = gate.passed ? '#6cb043' : '#e8b64c';
   ctx.font='800 '+Math.round(clamp(W*0.062,20,30))+'px ui-rounded, system-ui, sans-serif';
   ctx.fillText(
-    gate.grad ? 'You graduated '+MODENAME[G.pref]+'!' :
+    gate.grad ? 'You’re now a '+GRAD_TITLE[G.pref]+'!' :
     gate.practice ? (gate.passed ? 'Great practice!' : 'Practice done!') :
     gate.passed ? 'Level '+lvlNo+' complete!' : 'Ship loaded!', W/2, y0+38);
   ctx.font='600 '+Math.round(clamp(W*0.042,14,19))+'px ui-rounded, system-ui, sans-serif';
@@ -744,7 +749,7 @@ function drawComplete(){
     rrect(bx,by,bw,bh,bh/2); ctx.fill();
     ctx.fillStyle='#fff';
     ctx.font='800 '+Math.round(bh*0.40)+'px ui-rounded, system-ui, sans-serif';
-    ctx.fillText('Move to '+MODENAME[NEXTMODE[G.pref]], W/2, by+bh/2+1);
+    ctx.fillText('Continue as '+GRAD_TITLE[G.pref], W/2, by+bh/2+1);
     by += bh+14;
   }
   G.compNext={x:bx,y:by,w:bw,h:bh};
@@ -753,10 +758,19 @@ function drawComplete(){
   ctx.fillStyle='#fff';
   ctx.font='800 '+Math.round(bh*0.40)+'px ui-rounded, system-ui, sans-serif';
   ctx.fillText(gate.grad||gate.practice ? 'Keep practising' : gate.passed ? 'Next level' : 'Try again', W/2, by+bh/2+1);
-  // progress link
-  const lyy=by+bh+28;
+  // links: share (graduations only) + progress
+  let lyy=by+bh+28;
   ctx.fillStyle=DIM;
   ctx.font='600 '+Math.round(clamp(W*0.04,14,17))+'px ui-rounded, system-ui, sans-serif';
+  G.compShare=null;
+  if (gate.grad){
+    const sl='Share the news';
+    ctx.fillText(sl, W/2, lyy);
+    const sw2=ctx.measureText(sl).width;
+    ctx.fillRect(W/2-sw2/2, lyy+10, sw2, 1);
+    G.compShare={x:W/2-sw2/2-14, y:lyy-16, w:sw2+28, h:34};
+    lyy += 36;
+  }
   const lbl='See your progress';
   ctx.fillText(lbl, W/2, lyy);
   const lw2=ctx.measureText(lbl).width;
@@ -1380,7 +1394,7 @@ function drawMenu(){
   // its own ladder-progress bar (green + check when complete)
   const gap2=W*0.022, mw=Math.min((W*0.92-gap2*2)/3, 150), mh=clamp(H*0.068,48,60);
   const mx=(W-mw*3-gap2*2)/2, my=H*0.52;
-  const modes=[['beginner','Beginner','easy tables'],['regular','Regular','all tables'],['expert','Expert','hard tables']];
+  const modes=[['beginner',MODENAME.beginner,'easy tables'],['regular',MODENAME.regular,'all tables'],['expert',MODENAME.expert,'hard tables']];
   G.modeBtns=[];
   modes.forEach((m,i)=>{
     const x=mx+i*(mw+gap2), sel=G.pref===m[0];
@@ -1462,6 +1476,7 @@ cvs.addEventListener('pointerdown', e=>{
     return;
   }
   if (G.scene==='complete'){
+    if (G.compShare && hit(G.compShare)){ sTap(); shareNow(gradShareInfo(G.pref)); return; }
     if (hit(G.compProg)){ sTap(); showProgress(); return; }   // closing it returns here
     if (G.compMove && hit(G.compMove)){
       sTap();

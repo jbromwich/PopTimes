@@ -212,6 +212,19 @@ const LADDER_LEN = {beginner:12, regular:12, expert:12};
 function isGraduated(mode){ return (BESTS[mode]||0) >= LADDER_LEN[mode]; }
 function graduatedCount(){ return ['beginner','regular','expert'].filter(isGraduated).length; }
 
+/* Student-facing titles. Everyone is a Student from the start; each
+   ladder completed earns the next title: Scholar, Master, Professor.
+   A skill level is named after the title you hold while playing it
+   (you play the Student level to become a Scholar, and so on).
+   Storage keys stay beginner/regular/expert. */
+const MODENAME  = {beginner:'Student', regular:'Scholar', expert:'Master'};
+const GRAD_TITLE = {beginner:'Scholar', regular:'Master', expert:'Professor'};
+function heldTitle(){
+  return isGraduated('expert') ? 'Professor'
+       : isGraduated('regular') ? 'Master'
+       : isGraduated('beginner') ? 'Scholar' : 'Student';
+}
+
 function ladderRung(mode, n){
   const list = LADDERS[mode];
   if (n < list.length) return list[n];
@@ -468,6 +481,9 @@ const PG_CSS = `/* ---- progress overlay (styles ported from the quiz) ---- */
 .pg-chart svg{display:block;width:100%;height:auto}
 .pg-foot{margin-top:10px;display:flex;justify-content:space-between;font-size:11px;color:var(--muted)}
 .pg-clear{margin-top:26px;text-align:center}
+.pg-share{margin-top:30px;text-align:center}
+.pg-share button{font-family:inherit;font-size:16px;font-weight:700;color:#fff;background:#2f8f5b;border:none;border-radius:999px;padding:13px 30px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.pg-share button:active{background:#25774a}
 `;
 (function(){
   const st = document.createElement('style');
@@ -528,9 +544,9 @@ function badgeFamilies(){
   const mc    = masteredCount();
   // journey: graduates are sequential; Explorer floats alongside them
   const grads = [
-    medal('Beginner Graduate','cap',LADDER_LEN.beginner,BESTS.beginner||0,'finish every beginner level'),
-    medal('Regular Graduate','cap',LADDER_LEN.regular,BESTS.regular||0,'finish every regular level'),
-    medal('Expert Graduate','cap',LADDER_LEN.expert,BESTS.expert||0,'finish every expert level'),
+    medal('Scholar','cap',LADDER_LEN.beginner,BESTS.beginner||0,'finish every Student level'),
+    medal('Master','cap',LADDER_LEN.regular,BESTS.regular||0,'finish every Scholar level'),
+    medal('Professor','cap',LADDER_LEN.expert,BESTS.expert||0,'finish every Master level'),
   ];
   const explorer = medal('Explorer','compass',ALLPAIRS.length,seenCount(),'answer every question at least once');
   const firstGrad = grads.findIndex(m=>!m.earned);
@@ -630,9 +646,9 @@ function showProgress(){
   // your journey
   const s1=el('div','pg-sec first');
   s1.appendChild(el('h2',null,'Your journey'));
-  s1.appendChild(journeyRow('Beginner','beginner'));
-  s1.appendChild(journeyRow('Regular','regular'));
-  s1.appendChild(journeyRow('Expert','expert'));
+  s1.appendChild(journeyRow(MODENAME.beginner,'beginner'));
+  s1.appendChild(journeyRow(MODENAME.regular,'regular'));
+  s1.appendChild(journeyRow(MODENAME.expert,'expert'));
   body.appendChild(s1);
 
   // records
@@ -682,6 +698,13 @@ function showProgress(){
   s4.appendChild(kk);
   body.appendChild(s4);
 
+  // share
+  const sw=el('div','pg-share');
+  const sb=el('button',null,'Share my progress');
+  sb.addEventListener('click',()=>{ audio(); sTap(); shareNow(); });
+  sw.appendChild(sb);
+  body.appendChild(sw);
+
   // clear
   const cw2=el('div','pg-clear');
   const cl=el('button','link','Clear my history');
@@ -702,6 +725,108 @@ function showProgress(){
   pgEl.scrollTop=0;
 }
 
+
+/* ================================================================
+   SHARING — an achievement card (image) + short first-person message,
+   sent through the Web Share API with a clipboard fallback. The
+   message is the player's single best current highlight.
+   ================================================================ */
+const SHARE_URL = 'https://jbromwich.github.io/PopTimes/';
+
+// message priority: highest true row wins (live numbers)
+function shareInfo(){
+  const mc = masteredCount();
+  if (mc >= ALLPAIRS.length)
+    return {msg:'I mastered the WHOLE times table on PopTimes!', glyph:'trophy'};
+  if (mc >= 20)
+    return {msg:'I’ve mastered '+mc+' multiplication facts on PopTimes!', glyph:'trophy'};
+  if ((ST.rec.streak||0) >= 25)
+    return {msg:'I got '+ST.rec.streak+' right answers in a row on PopTimes!', glyph:'flame'};
+  const days = Math.max(ST.rec.days||0, dayStreak());
+  if (days >= 3)
+    return {msg:'I’ve played PopTimes '+days+' days in a row!', glyph:'sun'};
+  if (ST.h.some(r=>r.n>0 && r.c===r.n))
+    return {msg:'I scored a perfect level on PopTimes!', glyph:'star'};
+  return {msg:'I’m a PopTimes '+heldTitle()+' — come play the times-tables game with me!', glyph:'cap'};
+}
+// shared from a graduation card: the promotion itself is the message
+function gradShareInfo(mode){
+  return mode==='expert'
+    ? {msg:'I’m now a PopTimes Professor — I’ve mastered my times tables!', glyph:'trophy'}
+    : {msg:'I’m now a PopTimes '+GRAD_TITLE[mode]+'!', glyph:'cap'};
+}
+
+function shareCardBlob(info, cb){
+  const cv = document.createElement('canvas');
+  cv.width = 1200; cv.height = 630;
+  const c = cv.getContext('2d');
+  c.fillStyle = '#0e2233';
+  c.fillRect(0,0,1200,630);
+  // gold medal with the highlight's glyph
+  const mx=600, my=175, r=88;
+  c.fillStyle='rgba(232,182,76,0.16)';
+  c.beginPath(); c.arc(mx,my,r,0,7); c.fill();
+  c.lineWidth=9; c.strokeStyle='#e8b64c';
+  c.beginPath(); c.arc(mx,my,r,0,7); c.stroke();
+  const d = (GLYPHS[info.glyph]||GLYPHS.cap).match(/d="([^"]+)"/)[1];
+  const gs = r*1.15;
+  c.save();
+  c.translate(mx-gs/2, my-gs/2); c.scale(gs/24, gs/24);
+  c.fillStyle='#e8b64c'; c.fill(new Path2D(d));
+  c.restore();
+  // the message, wrapped and centered
+  c.textAlign='center'; c.textBaseline='middle';
+  c.fillStyle='#e8edf4';
+  let fs = 62;
+  const maxW = 1020;
+  let lines;
+  do {
+    c.font = '800 '+fs+'px ui-rounded, "SF Pro Rounded", system-ui, sans-serif';
+    lines = [];
+    let line = '';
+    for (const w of info.msg.split(' ')){
+      const t = line ? line+' '+w : w;
+      if (c.measureText(t).width > maxW && line){ lines.push(line); line = w; }
+      else line = t;
+    }
+    lines.push(line);
+    fs -= 4;
+  } while (lines.length > 3 && fs > 40);
+  const lh = (fs+4)*1.25;
+  const y0 = 400 - (lines.length-1)*lh/2;
+  lines.forEach((l,i)=>c.fillText(l, 600, y0+i*lh));
+  // footer
+  c.fillStyle='#94a1b2';
+  c.font='600 32px ui-rounded, "SF Pro Rounded", system-ui, sans-serif';
+  c.fillText('PopTimes · jbromwich.github.io/PopTimes', 600, 572);
+  if (cv.toBlob) cv.toBlob(cb, 'image/png'); else cb(null);
+}
+
+async function shareNow(info){
+  info = info || shareInfo();
+  const text = info.msg + ' ' + SHARE_URL;
+  try{
+    const blob = await new Promise(res=>{ try{ shareCardBlob(info, res); }catch(e){ res(null); } });
+    const file = blob && (typeof File==='function') && new File([blob],'poptimes.png',{type:'image/png'});
+    if (file && navigator.canShare && navigator.canShare({files:[file]})){
+      await navigator.share({files:[file], text});
+      return;
+    }
+    if (navigator.share){
+      await navigator.share({text: info.msg, url: SHARE_URL});
+      return;
+    }
+    throw new Error('no-share');
+  }catch(e){
+    if (e && e.name === 'AbortError') return;   // user closed the sheet
+    try{
+      await navigator.clipboard.writeText(text);
+      alert('Copied to your clipboard — paste it anywhere!');
+    }catch(e2){
+      alert(text);
+    }
+  }
+}
 
 loadStats();
 BESTS = loadBests();

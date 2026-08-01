@@ -8,6 +8,11 @@
 <meta name="theme-color" content="#e9eef5">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
+<meta property="og:title" content="Times Tables quiz — PopTimes">
+<meta property="og:description" content="Quick-fire times tables quiz. A fun way to master the times tables.">
+<meta property="og:url" content="https://jbromwich.github.io/PopTimes/times-tables.html">
+<meta property="og:image" content="https://jbromwich.github.io/PopTimes/icons/icon-512.png">
+<meta property="og:type" content="website">
 <title>Times tables quiz</title>
 <style>
 @font-face{
@@ -83,15 +88,15 @@ body{
   <div id="opts"></div>
   <div id="fb"></div>
 </div>
-<script src="stats.js?v=5"></script>
+<script src="stats.js?v=6"></script>
 <script>
 /* Times-tables quiz on the shared PopTimes progression:
    levels are ladder rungs shared with the Loader — pass a test
    (>=90% correct, and never 3 wrong in a row) to advance. */
 var MODES={
-  beginner:{label:'Beginner',sub:'easy tables'},
-  regular:{label:'Regular',sub:'all tables'},
-  expert:{label:'Expert',sub:'hard tables'}
+  beginner:{label:'Student',sub:'easy tables'},
+  regular:{label:'Scholar',sub:'all tables'},
+  expert:{label:'Master',sub:'hard tables'}
 };
 var TESTLEN={beginner:10,regular:15,expert:20};
 var STEPMS={beginner:2600,regular:2100,expert:1700};
@@ -202,7 +207,6 @@ function pick(v,btn,timedOut){
 }
 function finish(){
   var NEXTMODE={beginner:'regular',regular:'expert'};
-  var MODENAME={beginner:'Beginner',regular:'Regular',expert:'Expert'};
   var brokeDown=consecW>=3;
   var n=Math.max(1,idx);
   var practice=level>=LADDER_LEN[mode];
@@ -229,7 +233,7 @@ function finish(){
   fb.innerHTML='';fb.style.textAlign='left';
   var p=document.createElement('div');
   p.style.cssText='font-size:22px;color:var(--ink);margin-bottom:8px;text-align:center;';
-  p.textContent=grad?('You graduated '+MODENAME[mode]+'!')
+  p.textContent=grad?('You’re now a '+GRAD_TITLE[mode]+'!')
     :practice?(passed?'Great practice!':'Practice done!')
     :passed?('Level '+(level+1)+' passed!'):('Level '+(level+1)+' \u2014 not yet');
   fb.appendChild(p);
@@ -274,7 +278,7 @@ function finish(){
   var wrap=document.createElement('div');
   wrap.style.cssText='text-align:center;margin-top:22px;display:flex;flex-direction:column;gap:12px;align-items:center;';
   if(grad&&NEXTMODE[mode]){
-    wrap.appendChild(bigBtn('Move to '+MODENAME[NEXTMODE[mode]],function(){
+    wrap.appendChild(bigBtn('Continue as '+GRAD_TITLE[mode],function(){
       mode=NEXTMODE[mode];
       try{localStorage.setItem('ml-mode',mode);}catch(e){}
       startRun();
@@ -294,6 +298,10 @@ function finish(){
   fb.appendChild(wrap);
   var lw=document.createElement('div');
   lw.style.cssText='text-align:center;margin-top:14px;';
+  if(grad){
+    var gradMode=mode;
+    lw.appendChild(linkBtn('Share the news',function(){shareNow(gradShareInfo(gradMode));}));
+  }
   lw.appendChild(linkBtn('See your progress',function(){showProgress();}));
   fb.appendChild(lw);
 }
@@ -315,7 +323,7 @@ function welcome(){
   track.style.display='none';qrow.style.display='';
   chrome(false,true);
   qrow.style.gridTemplateColumns='1fr';q.style.textAlign='center';
-  q.innerHTML='<span class="brand">PopTimes</span><span class="ver">1.4</span><div class="subtitle">times tables quiz</div>';
+  q.innerHTML='<span class="brand">PopTimes</span><span class="ver">1.5</span><div class="subtitle">times tables quiz</div>';
   qa.textContent='';qa.style.opacity='0';
   opts.innerHTML='';opts.style.opacity='1';
   fb.innerHTML='';fb.style.textAlign='center';
