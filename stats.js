@@ -498,6 +498,34 @@ const PG_CSS = `/* ---- progress overlay (styles ported from the quiz) ---- */
 .pg-share{margin-top:30px;text-align:center}
 .pg-share button{font-family:inherit;font-size:16px;font-weight:700;color:#fff;background:#2f8f5b;border:none;border-radius:999px;padding:13px 30px;cursor:pointer;-webkit-tap-highlight-color:transparent}
 .pg-share button:active{background:#25774a}
+/* ---- medal toasts (coin-style awards at level end) ---- */
+.mtoasts{
+  position:fixed;top:calc(14px + env(safe-area-inset-top));left:0;right:0;z-index:10;
+  display:flex;flex-direction:column;align-items:center;gap:9px;pointer-events:none;
+}
+.mtoast{
+  display:flex;align-items:center;gap:11px;padding:9px 18px 9px 10px;border-radius:999px;
+  background:rgba(12,20,30,0.92);border:1.5px solid #e8b64c;
+  animation:mpop .45s cubic-bezier(.2,1.6,.4,1) both;
+}
+.mtoast .mmed{
+  position:relative;width:40px;height:40px;border-radius:50%;flex:0 0 40px;
+  background:rgba(232,182,76,0.18);border:2.5px solid #e8b64c;
+  display:flex;align-items:center;justify-content:center;
+}
+.mtoast .mmed svg{width:21px;height:21px;fill:#e8b64c}
+.mtoast .mlbl{font-family:ui-rounded,'SF Pro Rounded',system-ui,sans-serif;font-size:15px;font-weight:700;color:#f4e9c9;white-space:nowrap}
+.mtoast .mmed i{
+  position:absolute;width:5px;height:5px;border-radius:50%;background:#ffe9a8;opacity:0;
+  animation:mspark .7s ease-out .1s both;
+}
+.mtoast .mmed i:nth-child(2){left:-9px;top:4px}
+.mtoast .mmed i:nth-child(3){right:-9px;top:8px;animation-delay:.16s}
+.mtoast .mmed i:nth-child(4){left:6px;top:-9px;animation-delay:.22s}
+.mtoast .mmed i:nth-child(5){right:2px;bottom:-9px;animation-delay:.28s}
+@keyframes mpop{0%{transform:scale(.3) translateY(-18px);opacity:0}100%{transform:scale(1) translateY(0);opacity:1}}
+@keyframes mspark{0%{opacity:0;transform:scale(.3)}35%{opacity:1;transform:scale(1.25)}100%{opacity:0;transform:scale(.4)}}
+@media (prefers-reduced-motion: reduce){.mtoast,.mtoast .mmed i{animation:none}}
 `;
 (function(){
   const st = document.createElement('style');
@@ -732,6 +760,7 @@ function showProgress(){
         try{ localStorage.removeItem('ml-best-'+m); }catch(e){}
         BESTS[m]=0;
       }
+      try{ localStorage.setItem(MKEY,'[]'); }catch(e){}
       pgEl.style.display='none';
     }
   });
@@ -742,6 +771,68 @@ function showProgress(){
   pgEl.scrollTop=0;
 }
 
+
+/* ================================================================
+   MEDAL AWARDS — video-game coin style. Earned medals are diffed
+   against a persisted list at the end of every level (never mid-play)
+   and new ones pop in rapid succession, each with a rising "bling".
+   ================================================================ */
+const MKEY = 'ml-medals';
+function allMedals(){
+  const out = [];
+  for (const fam of badgeFamilies()){
+    const list = fam.seq || [...(fam.pending||[]), ...(fam.shelf||[])];
+    for (const m of list) out.push({key: m.glyph+'|'+m.target+'|'+m.label, m});
+  }
+  return out;
+}
+function loadMedalKeys(){
+  try{ return new Set(JSON.parse(localStorage.getItem(MKEY)||'[]')); }catch(e){ return new Set(); }
+}
+function saveMedalKeys(set){
+  try{ localStorage.setItem(MKEY, JSON.stringify([...set])); }catch(e){}
+}
+// diff earned medals against the persisted list; returns the new ones
+function checkNewMedals(){
+  const seen = loadMedalKeys();
+  const fresh = [];
+  for (const {key, m} of allMedals()){
+    if (m.earned && !seen.has(key)){ seen.add(key); fresh.push(m); }
+  }
+  if (fresh.length) saveMedalKeys(seen);
+  return fresh;
+}
+function blingSound(i){
+  audio();
+  const step = Math.pow(1.1225, i);          // each medal a tone higher
+  beep(988*step, 0.07, 'square', 0.055);
+  beep(1319*step, 0.30, 'square', 0.055, 0.07);
+}
+function medalBlings(medals, delay){
+  if (!medals.length) return;
+  const wrap = document.createElement('div');
+  wrap.className = 'mtoasts';
+  document.body.appendChild(wrap);
+  medals.forEach((m, i)=>{
+    setTimeout(()=>{
+      if (!wrap.parentNode) return;
+      blingSound(i);
+      const d = document.createElement('div');
+      d.className = 'mtoast';
+      d.innerHTML = '<span class="mmed"><svg viewBox="0 0 24 24" aria-hidden="true">'
+        +GLYPHS[m.glyph]+'</svg><i></i><i></i><i></i><i></i></span>'
+        +'<span class="mlbl">'+m.label+'</span>';
+      wrap.appendChild(d);
+    }, (delay||250) + i*430);
+  });
+  setTimeout(()=>wrap.remove(), (delay||250) + medals.length*430 + 2600);
+}
+// call at the end of a level (either game); optional delay for ceremonies
+function awardNewMedals(delay){
+  const fresh = checkNewMedals();
+  medalBlings(fresh, delay);
+  return fresh;
+}
 
 /* ================================================================
    SHARING — a short first-person message with the game's URL on its
@@ -797,3 +888,7 @@ async function shareNow(info){
 
 loadStats();
 BESTS = loadBests();
+// first run after the medal-award update: mark already-earned medals as
+// seen so history isn't retro-celebrated
+if (!localStorage.getItem(MKEY))
+  saveMedalKeys(new Set(allMedals().filter(x=>x.m.earned).map(x=>x.key)));

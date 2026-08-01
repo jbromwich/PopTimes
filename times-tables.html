@@ -304,13 +304,14 @@ function finish(){
   }
   fb.appendChild(wrap);
   var lw=document.createElement('div');
-  lw.style.cssText='text-align:center;margin-top:14px;';
+  lw.style.cssText='text-align:center;margin-top:16px;display:flex;flex-direction:column;gap:10px;align-items:center;';
   if(grad){
     var gradMode=mode;
-    lw.appendChild(linkBtn('Share the news',function(){shareNow(gradShareInfo(gradMode));}));
+    lw.appendChild(iconBtn('Share the news','share',function(){shareNow(gradShareInfo(gradMode));}));
   }
-  lw.appendChild(linkBtn('See your progress',function(){showProgress();}));
+  lw.appendChild(iconBtn('See your progress','chart',function(){showProgress();}));
   fb.appendChild(lw);
+  awardNewMedals(grad?1600:450);
 }
 function gateBarRow(label,val,n,need){
   var ok=val>=need;
@@ -320,9 +321,9 @@ function gateBarRow(label,val,n,need){
     +'<div style="display:flex;justify-content:space-between;font-size:14px;color:var(--muted);margin-bottom:5px;">'
       +'<span>'+label+'</span><span style="color:var(--ink);font-variant-numeric:tabular-nums;">'+val+' / '+n+'</span></div>'
     +'<div style="position:relative;height:10px;border-radius:5px;background:var(--line);">'
-      +'<div style="position:absolute;left:0;top:0;bottom:0;width:'+tick+'%;border-radius:5px 0 0 5px;background:rgba(0,0,0,0.15);"></div>'
+      +(ok?'':'<div style="position:absolute;left:0;top:0;bottom:0;width:'+tick+'%;border-radius:5px 0 0 5px;background:rgba(0,0,0,0.15);"></div>')
       +'<div style="position:absolute;left:0;top:0;bottom:0;width:'+w+'%;border-radius:5px;background:'+(ok?'#6cb043':'#e8b64c')+';"></div>'
-      +'<div style="position:absolute;left:calc('+tick+'% - 1px);top:-3px;bottom:-3px;width:2px;border-radius:1px;background:var(--ink);opacity:0.75;"></div>'
+      +(ok?'':'<div style="position:absolute;left:calc('+tick+'% - 1px);top:-3px;bottom:-3px;width:2px;border-radius:1px;background:var(--ink);opacity:0.75;"></div>')
     +'</div></div>';
 }
 function bigBtn(label,fn){
@@ -334,6 +335,20 @@ function bigBtn(label,fn){
 function linkBtn(label,fn){
   var btn=document.createElement('button');
   btn.className='link';btn.textContent=label;
+  btn.addEventListener('click',function(){audio();sTap();fn();});
+  return btn;
+}
+/* secondary pill button with a teaching icon: 'chart' or 'share' */
+var BTNICONS={
+  chart:'<path d="M3 15V9M9 15V3M15 15v-4"/>',
+  share:'<path d="M9 12V3M6 6l3-3 3 3M3 10v6a1 1 0 001 1h10a1 1 0 001-1v-6" transform="translate(0,-1)"/>'
+};
+function iconBtn(label,icon,fn){
+  var btn=document.createElement('button');
+  btn.style.cssText='font-family:inherit;font-size:15px;font-weight:600;display:inline-flex;align-items:center;gap:8px;'
+    +'padding:9px 18px;border:1.5px solid var(--line-strong);border-radius:999px;background:none;color:var(--muted);cursor:pointer;';
+  btn.innerHTML='<svg width="17" height="17" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+    +BTNICONS[icon]+'</svg><span>'+label+'</span>';
   btn.addEventListener('click',function(){audio();sTap();fn();});
   return btn;
 }

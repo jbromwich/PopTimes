@@ -369,18 +369,23 @@ function failOrder(keep){
   }
 }
 
-function dismissBreakdown(){
-  if (G.lvlN>0){
-    noteLevelResult({d:dayKey(new Date()), c:G.lvlC, n:G.lvlN, q:G.lvlQ, lv:G.level+1, m:G.pref});
-  }
+function retryAfterBreakdown(){
+  G.orders=[]; G.parts=[]; G.fx=[]; G.cands=[];
+  startLevel(false);
+  G.scene='play';
+}
+function exitBreakdown(){
   G.orders=[]; G.parts=[]; G.fx=[]; G.cands=[];
   G.scene='menu';
-  showProgress();
 }
 
 function breakDown(){
   G.scene='broken'; G.brkT=0; G.shake=1;
   G.anim=null; G.phase='aim';
+  if (G.lvlN>0){
+    noteLevelResult({d:dayKey(new Date()), c:G.lvlC, n:G.lvlN, q:G.lvlQ, lv:G.level+1, m:G.pref});
+  }
+  awardNewMedals(1400);   // after the snap; never interrupts play itself
   beep(150,0.4,'sawtooth',0.12); beep(98,0.7,'sawtooth',0.12,0.15); beep(65,1.0,'sawtooth',0.1,0.35);
 }
 
@@ -557,6 +562,9 @@ function update(dt){
         sGood();  // the load itself still lands warmly
       }
       G.scene='complete';   // rest point: waits for a tap
+      // medal moment: bling in anything newly earned (after the
+      // graduation ceremony's opening, when there is one)
+      awardNewMedals(G.lvlGate.grad ? 1600 : 450);
     }
     return;
   }
@@ -716,7 +724,7 @@ function drawComplete(){
   const missed = gate.grad ? [] : (G.lvlLog||[]).slice(0,3);
   const rows = missed.length ? missed.length+1 : 0;
   const twoBtns = gate.grad && NEXTMODE[G.pref];
-  const ph = (gate.grad?258:294) + rows*26 + (twoBtns?62:0) + (gate.grad?28+36:0);
+  const ph = (gate.grad?258:300) + rows*26 + (twoBtns?62:0) + (gate.grad?28+46:0);
   const y0 = H*0.42 - ph/2;
   ctx.fillStyle='rgba(8,16,24,0.85)';
   rrect(W*0.07, y0, W*0.86, ph, 14); ctx.fill();
@@ -776,24 +784,16 @@ function drawComplete(){
   ctx.fillStyle='#fff';
   ctx.font='800 '+Math.round(bh*0.40)+'px ui-rounded, system-ui, sans-serif';
   ctx.fillText(gate.grad||gate.practice ? 'Keep practising' : gate.passed ? 'Next level' : 'Try again', W/2, by+bh/2+1);
-  // links: share (graduations only) + progress
-  let lyy=by+bh+28;
-  ctx.fillStyle=DIM;
-  ctx.font='600 '+Math.round(clamp(W*0.04,14,17))+'px ui-rounded, system-ui, sans-serif';
+  // secondary buttons: share (graduations only) + progress, icon-labelled
+  let lyy=by+bh+16;
   G.compShare=null;
   if (gate.grad){
-    const sl='Share the news';
-    ctx.fillText(sl, W/2, lyy);
-    const sw2=ctx.measureText(sl).width;
-    ctx.fillRect(W/2-sw2/2, lyy+10, sw2, 1);
-    G.compShare={x:W/2-sw2/2-14, y:lyy-16, w:sw2+28, h:34};
-    lyy += 36;
+    G.compShare=iconBtn('Share the news','share',lyy);
+    lyy += 46;
   }
-  const lbl='See your progress';
-  ctx.fillText(lbl, W/2, lyy);
-  const lw2=ctx.measureText(lbl).width;
-  ctx.fillRect(W/2-lw2/2, lyy+10, lw2, 1);
-  G.compProg={x:W/2-lw2/2-14, y:lyy-16, w:lw2+28, h:34};
+  G.compProg=iconBtn('See your progress','chart',lyy);
+  // in-card exit
+  G.compX=cardX(W*0.93-24, y0+24);
 }
 
 // one gate-progress row: label + count above, bar with threshold tick below
@@ -804,23 +804,66 @@ function gateBar(label, val, n, need, y){
   ctx.textAlign='left';  ctx.fillStyle=DIM; ctx.fillText(label, x0, y);
   ctx.textAlign='right'; ctx.fillStyle=INK; ctx.fillText(val+' / '+n, x0+bw, y);
   const by=y+13, tick=x0+bw*clamp(need/Math.max(1,n),0,1);
+  const met = val>=need;
   ctx.fillStyle='rgba(238,244,248,0.16)';
   rrect(x0,by,bw,bh,bh/2); ctx.fill();
-  ctx.save();                       // darker track below (left of) the tick
+  ctx.save();
   rrect(x0,by,bw,bh,bh/2); ctx.clip();
-  ctx.fillStyle='rgba(8,16,24,0.45)';
-  ctx.fillRect(x0,by,tick-x0,bh);
+  if (!met){                        // darker track below (left of) the tick
+    ctx.fillStyle='rgba(8,16,24,0.45)';
+    ctx.fillRect(x0,by,tick-x0,bh);
+  }
   const fw=bw*clamp(val/Math.max(1,n),0,1);
   if (fw>0){
-    ctx.fillStyle = val>=need ? '#6cb043' : '#e8b64c';
+    ctx.fillStyle = met ? '#6cb043' : '#e8b64c';
     rrect(x0,by,Math.max(fw,bh),bh,bh/2); ctx.fill();
   }
-  ctx.fillStyle='rgba(238,244,248,0.85)';
-  ctx.fillRect(tick-1.25, by-3, 2.5, bh+6);
   ctx.restore();
-  ctx.fillStyle='rgba(238,244,248,0.85)';   // tick caps outside the clip
-  ctx.fillRect(tick-1.25, by-3, 2.5, bh+6);
+  if (!met){                        // threshold tick only while unmet
+    ctx.fillStyle='rgba(238,244,248,0.85)';
+    ctx.fillRect(tick-1.25, by-3, 2.5, bh+6);
+  }
   ctx.textAlign='center';
+}
+
+// small in-card close cross, top-right; returns its hit rect
+function cardX(cx, cy){
+  ctx.strokeStyle='rgba(238,244,248,0.55)'; ctx.lineWidth=2.5; ctx.lineCap='round';
+  ctx.beginPath();
+  ctx.moveTo(cx-7,cy-7); ctx.lineTo(cx+7,cy+7);
+  ctx.moveTo(cx+7,cy-7); ctx.lineTo(cx-7,cy+7);
+  ctx.stroke();
+  return {x:cx-22, y:cy-22, w:44, h:44};
+}
+
+// secondary pill button with a teaching icon ('chart' or 'share');
+// centered at y, returns its hit rect
+function iconBtn(label, icon, y){
+  ctx.font='700 '+Math.round(clamp(W*0.038,13,16))+'px ui-rounded, system-ui, sans-serif';
+  ctx.textBaseline='middle';
+  const tw=ctx.measureText(label).width;
+  const bh2=36, iw=17, gap=8, pad=16;
+  const w=pad+iw+gap+tw+pad, x=(W-w)/2;
+  ctx.strokeStyle='rgba(238,244,248,0.45)'; ctx.lineWidth=1.5;
+  rrect(x,y,w,bh2,bh2/2); ctx.stroke();
+  const ix=x+pad, im=y+bh2/2;
+  ctx.strokeStyle='rgba(238,244,248,0.8)'; ctx.lineWidth=2; ctx.lineCap='round';
+  ctx.beginPath();
+  if (icon==='chart'){
+    ctx.moveTo(ix+2,  im+7); ctx.lineTo(ix+2,  im+1);
+    ctx.moveTo(ix+8.5,im+7); ctx.lineTo(ix+8.5,im-7);
+    ctx.moveTo(ix+15, im+7); ctx.lineTo(ix+15, im-2);
+  } else {   // share: up arrow out of a tray
+    ctx.moveTo(ix+8.5,im+1);  ctx.lineTo(ix+8.5,im-8);
+    ctx.moveTo(ix+4.5,im-4.5);ctx.lineTo(ix+8.5,im-8.5); ctx.lineTo(ix+12.5,im-4.5);
+    ctx.moveTo(ix+2,  im+1);  ctx.lineTo(ix+2,  im+7);  ctx.lineTo(ix+15,im+7); ctx.lineTo(ix+15,im+1);
+  }
+  ctx.stroke();
+  ctx.fillStyle='rgba(238,244,248,0.85)';
+  ctx.textAlign='left';
+  ctx.fillText(label, ix+iw+gap, im+1);
+  ctx.textAlign='center';
+  return {x, y, w, h:bh2};
 }
 
 function drawBroken(){
@@ -829,26 +872,28 @@ function drawBroken(){
   ctx.globalAlpha = k;
   ctx.fillStyle='rgba(8,16,24,0.78)';
   const y=H*0.40;
-  rrect(W*0.07, y-70, W*0.86, 226, 14); ctx.fill();
+  const cardTop=y-70;
+  rrect(W*0.07, cardTop, W*0.86, 236, 14); ctx.fill();
   ctx.textAlign='center'; ctx.textBaseline='middle';
   ctx.fillStyle=BAD;
   ctx.font='800 '+Math.round(clamp(W*0.075,24,38))+'px ui-rounded, system-ui, sans-serif';
-  ctx.fillText('Breakdown!', W/2, y-32);
+  ctx.fillText('Breakdown!', W/2, y-28);
   ctx.fillStyle=INK;
   ctx.font='600 '+Math.round(clamp(W*0.04,14,19))+'px ui-rounded, system-ui, sans-serif';
-  ctx.fillText('Too many missed orders —', W/2, y+8);
-  ctx.fillText('the conveyor gave out.', W/2, y+34);
-  ctx.fillStyle=DIM;
-  ctx.fillText('You reached level '+(G.level+1), W/2, y+64);
+  ctx.fillText('Too many missed orders —', W/2, y+12);
+  ctx.fillText('the conveyor gave out.', W/2, y+38);
+  G.brkBtn=null; G.brkProg=null; G.brkX=null;
   if (G.brkT > 0.8){
-    const bw=clamp(W*0.56,190,260), bh=clamp(H*0.056,42,52);
-    const bx=(W-bw)/2, by2=y+92;
+    const bw=clamp(W*0.62,210,280), bh=clamp(H*0.056,42,52);
+    const bx=(W-bw)/2, by2=y+66;
     G.brkBtn={x:bx,y:by2,w:bw,h:bh};
     ctx.fillStyle='#a8752f';
     rrect(bx,by2,bw,bh,bh/2); ctx.fill();
     ctx.fillStyle='#fff';
-    ctx.font='800 '+Math.round(bh*0.40)+'px ui-rounded, system-ui, sans-serif';
-    ctx.fillText('Continue', W/2, by2+bh/2+1);
+    ctx.font='800 '+Math.round(bh*0.38)+'px ui-rounded, system-ui, sans-serif';
+    ctx.fillText('Try level '+(G.level+1)+' again', W/2, by2+bh/2+1);
+    G.brkProg=iconBtn('See your progress','chart',by2+bh+14);
+    G.brkX=cardX(W*0.93-24, cardTop+24);
   }
   ctx.globalAlpha = 1;
 }
@@ -1522,11 +1567,15 @@ cvs.addEventListener('pointerdown', e=>{
     return;
   }
   if (G.scene==='broken'){
-    if (G.brkT > 0.8 && hit(G.brkBtn)){ sTap(); dismissBreakdown(); }   // let the snap play first
+    if (G.brkT <= 0.8) return;              // let the snap play first
+    if (hit(G.brkBtn)){ sTap(); retryAfterBreakdown(); return; }
+    if (hit(G.brkProg)){ sTap(); showProgress(); return; }
+    if (hit(G.brkX)){ sTap(); exitBreakdown(); return; }
     return;
   }
   if (G.scene==='complete'){
     if (G.compShare && hit(G.compShare)){ sTap(); shareNow(gradShareInfo(G.pref)); return; }
+    if (hit(G.compX)){ sTap(); G.orders=[]; G.parts=[]; G.fx=[]; G.cands=[]; G.scene='menu'; return; }
     if (hit(G.compProg)){ sTap(); showProgress(); return; }   // closing it returns here
     if (G.compMove && hit(G.compMove)){
       sTap();
@@ -1565,11 +1614,15 @@ document.getElementById('exit').addEventListener('click', e=>{
 chartEl.addEventListener('click', ()=>{ audio(); sTap(); showProgress(); });
 const shareEl = document.getElementById('share');
 shareEl.addEventListener('click', ()=>{ audio(); sTap(); shareNow(); });
+const exitEl = document.getElementById('exit');
 setInterval(()=>{
   const onMenu = G.scene==='menu';
+  const onCard = G.scene==='complete' || G.scene==='broken';
   creditEl.style.display = onMenu ? 'block' : 'none';
   chartEl.style.display = (onMenu && ST.h.length) ? 'block' : 'none';
   shareEl.style.display = onMenu ? 'block' : 'none';   // shareable from day one
+  // cards carry their own in-card X; the screen-corner one hides meanwhile
+  exitEl.style.display = onCard ? 'none' : 'block';
 }, 250);
 resize();
 requestAnimationFrame(frame);
