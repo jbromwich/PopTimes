@@ -839,9 +839,12 @@ function gateBar(label, val, n, need, y){
     rrect(x0,by,Math.max(fw,bh),bh,bh/2); ctx.fill();
   }
   ctx.restore();
-  if (!met){                        // threshold tick only while unmet
-    ctx.fillStyle='rgba(238,244,248,0.85)';
-    ctx.fillRect(tick-1.25, by-3, 2.5, bh+6);
+  if (!met){                        // threshold tick only while unmet,
+    ctx.fillStyle='rgba(238,244,248,0.85)';   // labelled underneath like
+    ctx.fillRect(tick-1.25, by-3, 2.5, bh+6); // the stats speed bar
+    ctx.textAlign='center'; ctx.fillStyle=DIM;
+    ctx.font='600 '+Math.round(clamp(W*0.032,11,13))+'px ui-rounded, system-ui, sans-serif';
+    ctx.fillText(need, tick, by+bh+12);
   }
   ctx.textAlign='center';
 }

@@ -332,7 +332,9 @@ function gateBarRow(label,val,n,need){
       +(ok?'':'<div style="position:absolute;left:0;top:0;bottom:0;width:'+tick+'%;border-radius:5px 0 0 5px;background:rgba(0,0,0,0.15);"></div>')
       +'<div style="position:absolute;left:0;top:0;bottom:0;width:'+w+'%;border-radius:5px;background:'+(ok?'#6cb043':'#e8b64c')+';"></div>'
       +(ok?'':'<div style="position:absolute;left:calc('+tick+'% - 1px);top:-3px;bottom:-3px;width:2px;border-radius:1px;background:var(--ink);opacity:0.75;"></div>')
-    +'</div></div>';
+    +'</div>'
+    +(ok?'':'<div style="position:relative;height:14px;"><span style="position:absolute;left:'+tick+'%;transform:translateX(-50%);font-size:11px;color:var(--muted);">'+need+'</span></div>')
+    +'</div>';
 }
 function bigBtn(label,fn){
   var btn=document.createElement('button');
