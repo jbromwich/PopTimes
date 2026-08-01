@@ -564,7 +564,7 @@ function badgeFamilies(){
     {name:'Perfect levels',        seq:[1,5,25].map(t=>medal('Perfect ×'+t,'star',t,perf,'levels with every answer correct'))},
     {name:'Lightning fast levels', seq:[1,5,25].map(t=>medal('Lightning ×'+t,'bolt',t,light,'levels with every answer quick'))},
     {name:'Correct answer streak', seq:[10,25,50].map(t=>medal('Streak '+t,'flame',t,streak,'correct answers in a row'))},
-    {name:'Days played in a row',  seq:[3,7,30].map(t=>medal(t+'-Day Streak','sun',t,days,'days in a row'))},
+    {name:'Devotion to learning',  seq:[3,7,30].map(t=>medal(t+' Day Devotion','sun',t,days,'days played in a row'))},
     {name:'Learning journey',      pending:journey, shelf:journeyEarned},
     {name:'Multiplication facts mastered', seq:[20,40,60,78].map(t=>medal(t+' mastered','trophy',t,mc,'multiplication facts mastered'))},
   ];
