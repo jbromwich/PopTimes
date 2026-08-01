@@ -32,6 +32,12 @@ canvas{display:block;width:100vw;height:100vh;height:100dvh}
   -webkit-tap-highlight-color:transparent;line-height:0;
 }
 #chart:active{color:rgba(238,244,248,0.95)}
+#share{
+  display:none;position:fixed;top:calc(12px + env(safe-area-inset-top));right:94px;z-index:5;
+  background:none;border:none;padding:8px;color:rgba(238,244,248,0.6);cursor:pointer;
+  -webkit-tap-highlight-color:transparent;line-height:0;
+}
+#share:active{color:rgba(238,244,248,0.95)}
 #credit{
   position:fixed;bottom:calc(8px + env(safe-area-inset-bottom));left:0;right:0;z-index:5;
   text-align:center;font-size:12px;color:rgba(238,244,248,0.45);
@@ -43,12 +49,13 @@ canvas{display:block;width:100vw;height:100vh;height:100dvh}
 <body>
 <canvas id="c"></canvas>
 <a id="exit" href="index.html" title="Back to games" aria-label="Back to games">&times;</a>
+<button id="share" title="Share" aria-label="Share"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M8 7l4-4 4 4M5 12v8a1 1 0 001 1h12a1 1 0 001-1v-8"/></svg></button>
 <button id="chart" title="Progress" aria-label="See your progress"><svg width="20" height="20" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 15V9M9 15V3M15 15v-4"/></svg></button>
 <div id="credit">by <a href="https://julianbromwich.com" target="_blank" rel="noopener">Julian Bromwich</a></div>
-<script src="stats.js?v=6"></script>
+<script src="stats.js?v=7"></script>
 <script>
 'use strict';
-const APPVER = '1.5';   // major = feature, minor = fix
+const APPVER = '1.6';   // major = feature, minor = fix
 /* ================================================================
    MULTIPLICATION LOADER — cargo-dock theme
    Orders ride a conveyor toward the sea. Tap the crate whose
@@ -1513,10 +1520,13 @@ document.getElementById('exit').addEventListener('click', e=>{
   }
 });
 chartEl.addEventListener('click', ()=>{ audio(); sTap(); showProgress(); });
+const shareEl = document.getElementById('share');
+shareEl.addEventListener('click', ()=>{ audio(); sTap(); shareNow(); });
 setInterval(()=>{
   const onMenu = G.scene==='menu';
   creditEl.style.display = onMenu ? 'block' : 'none';
   chartEl.style.display = (onMenu && ST.h.length) ? 'block' : 'none';
+  shareEl.style.display = onMenu ? 'block' : 'none';   // shareable from day one
 }, 250);
 resize();
 requestAnimationFrame(frame);

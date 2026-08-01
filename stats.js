@@ -416,6 +416,9 @@ const PG_CSS = `/* ---- progress overlay (styles ported from the quiz) ---- */
 #pg .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
 #pg .top h1{font-size:15px;font-weight:600;color:var(--muted);margin:0}
 #pg .top button{font-family:inherit;font-size:22px;line-height:1;background:none;border:none;color:var(--muted);cursor:pointer;padding:4px 8px}
+#pg .top .tbtns{display:flex;align-items:center;gap:6px}
+#pg .top #pgshare{line-height:0;padding:6px 8px}
+#pg .top #pgshare svg{display:block}
 #pg button.link{font-family:inherit;border:none;background:none;color:var(--muted);font-size:15px;text-decoration:underline;padding:8px;cursor:pointer}
 .pg-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .pg-stats.two{grid-template-columns:repeat(2,1fr)}
@@ -491,11 +494,14 @@ const PG_CSS = `/* ---- progress overlay (styles ported from the quiz) ---- */
   document.head.appendChild(st);
   const d = document.createElement('div');
   d.id = 'pg';
-  d.innerHTML = '<div class="wrap"><div class="top"><h1>Progress</h1><button id="pgclose" aria-label="Close">&times;</button></div><div id="pgbody"></div></div>';
+  d.innerHTML = '<div class="wrap"><div class="top"><h1>Progress</h1><span class="tbtns">'
+    +'<button id="pgshare" title="Share" aria-label="Share"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M8 7l4-4 4 4M5 12v8a1 1 0 001 1h12a1 1 0 001-1v-8"/></svg></button>'
+    +'<button id="pgclose" aria-label="Close">&times;</button></span></div><div id="pgbody"></div></div>';
   document.body.appendChild(d);
 })();
 const pgEl = document.getElementById('pg');
 document.getElementById('pgclose').addEventListener('click', ()=>{ pgEl.style.display='none'; });
+document.getElementById('pgshare').addEventListener('click', ()=>{ audio(); sTap(); shareNow(); });
 
 
 const TIERCOL = ['', '#b4503c', '#dd8b33', '#e2c94f', '#6cb043'];   // approved palette
