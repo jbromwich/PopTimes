@@ -733,9 +733,11 @@ function showProgress(){
 
 
 /* ================================================================
-   SHARING — an achievement card (image) + short first-person message,
-   sent through the Web Share API with a clipboard fallback. The
-   message is the player's single best current highlight.
+   SHARING — a short first-person message with the game's URL on its
+   own line, sent through the Web Share API (clipboard fallback).
+   No attached image: messaging apps unfurl the URL into a rich link
+   preview using the pages' OG tags, and that card is the visual.
+   The message is the player's single best current highlight.
    ================================================================ */
 const SHARE_URL = 'https://jbromwich.github.io/PopTimes/';
 
@@ -743,83 +745,31 @@ const SHARE_URL = 'https://jbromwich.github.io/PopTimes/';
 function shareInfo(){
   const mc = masteredCount();
   if (mc >= ALLPAIRS.length)
-    return {msg:'I mastered the WHOLE times table on PopTimes!', glyph:'trophy'};
+    return {msg:'I mastered the WHOLE times table on PopTimes!'};
   if (mc >= 20)
-    return {msg:'I’ve mastered '+mc+' multiplication facts on PopTimes!', glyph:'trophy'};
+    return {msg:'I’ve mastered '+mc+' multiplication facts on PopTimes!'};
   if ((ST.rec.streak||0) >= 25)
-    return {msg:'I got '+ST.rec.streak+' right answers in a row on PopTimes!', glyph:'flame'};
+    return {msg:'I got '+ST.rec.streak+' right answers in a row on PopTimes!'};
   const days = Math.max(ST.rec.days||0, dayStreak());
   if (days >= 3)
-    return {msg:'I’ve played PopTimes '+days+' days in a row!', glyph:'sun'};
+    return {msg:'I’ve played PopTimes '+days+' days in a row!'};
   if (ST.h.some(r=>r.n>0 && r.c===r.n))
-    return {msg:'I scored a perfect level on PopTimes!', glyph:'star'};
-  return {msg:'I’m a PopTimes '+heldTitle()+' — come play the times-tables game with me!', glyph:'cap'};
+    return {msg:'I scored a perfect level on PopTimes!'};
+  return {msg:'I’m a PopTimes '+heldTitle()+' — come play the times-tables game with me!'};
 }
 // shared from a graduation card: the promotion itself is the message
 function gradShareInfo(mode){
   return mode==='expert'
-    ? {msg:'I’m now a PopTimes Professor — I’ve mastered my times tables!', glyph:'trophy'}
-    : {msg:'I’m now a PopTimes '+GRAD_TITLE[mode]+'!', glyph:'cap'};
-}
-
-function shareCardBlob(info, cb){
-  const cv = document.createElement('canvas');
-  cv.width = 1200; cv.height = 630;
-  const c = cv.getContext('2d');
-  c.fillStyle = '#0e2233';
-  c.fillRect(0,0,1200,630);
-  // gold medal with the highlight's glyph
-  const mx=600, my=175, r=88;
-  c.fillStyle='rgba(232,182,76,0.16)';
-  c.beginPath(); c.arc(mx,my,r,0,7); c.fill();
-  c.lineWidth=9; c.strokeStyle='#e8b64c';
-  c.beginPath(); c.arc(mx,my,r,0,7); c.stroke();
-  const d = (GLYPHS[info.glyph]||GLYPHS.cap).match(/d="([^"]+)"/)[1];
-  const gs = r*1.15;
-  c.save();
-  c.translate(mx-gs/2, my-gs/2); c.scale(gs/24, gs/24);
-  c.fillStyle='#e8b64c'; c.fill(new Path2D(d));
-  c.restore();
-  // the message, wrapped and centered
-  c.textAlign='center'; c.textBaseline='middle';
-  c.fillStyle='#e8edf4';
-  let fs = 62;
-  const maxW = 1020;
-  let lines;
-  do {
-    c.font = '800 '+fs+'px ui-rounded, "SF Pro Rounded", system-ui, sans-serif';
-    lines = [];
-    let line = '';
-    for (const w of info.msg.split(' ')){
-      const t = line ? line+' '+w : w;
-      if (c.measureText(t).width > maxW && line){ lines.push(line); line = w; }
-      else line = t;
-    }
-    lines.push(line);
-    fs -= 4;
-  } while (lines.length > 3 && fs > 40);
-  const lh = (fs+4)*1.25;
-  const y0 = 400 - (lines.length-1)*lh/2;
-  lines.forEach((l,i)=>c.fillText(l, 600, y0+i*lh));
-  // footer
-  c.fillStyle='#94a1b2';
-  c.font='600 32px ui-rounded, "SF Pro Rounded", system-ui, sans-serif';
-  c.fillText('PopTimes · jbromwich.github.io/PopTimes', 600, 572);
-  if (cv.toBlob) cv.toBlob(cb, 'image/png'); else cb(null);
+    ? {msg:'I’m now a PopTimes Professor — I’ve mastered my times tables!'}
+    : {msg:'I’m now a PopTimes '+GRAD_TITLE[mode]+'!'};
 }
 
 async function shareNow(info){
   info = info || shareInfo();
-  const text = info.msg + ' ' + SHARE_URL;
+  const text = info.msg + '\n' + SHARE_URL;
   try{
-    const blob = await new Promise(res=>{ try{ shareCardBlob(info, res); }catch(e){ res(null); } });
-    const file = blob && (typeof File==='function') && new File([blob],'poptimes.png',{type:'image/png'});
-    if (file && navigator.canShare && navigator.canShare({files:[file]})){
-      await navigator.share({files:[file], text});
-      return;
-    }
     if (navigator.share){
-      await navigator.share({text: info.msg, url: SHARE_URL});
+      await navigator.share({text});
       return;
     }
     throw new Error('no-share');
