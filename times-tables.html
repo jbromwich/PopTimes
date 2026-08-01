@@ -83,7 +83,7 @@ body{
   <div id="opts"></div>
   <div id="fb"></div>
 </div>
-<script src="stats.js?v=4"></script>
+<script src="stats.js?v=5"></script>
 <script>
 /* Times-tables quiz on the shared PopTimes progression:
    levels are ladder rungs shared with the Loader — pass a test
@@ -142,7 +142,7 @@ function next(){
   quit.style.display='block';document.getElementById('exit').style.display='none';
   qa.textContent='';qa.style.opacity='0';
   opts.style.opacity='1';opts.style.pointerEvents='auto';
-  prog.textContent='Level '+(level+1)+' \u00b7 Question '+idx+' of '+N;
+  prog.textContent=(level>=LADDER_LEN[mode]?'Practice':'Level '+(level+1))+' \u00b7 Question '+idx+' of '+N;
   bar.style.width=Math.round((idx-1)/N*100)+'%';
   var f=pickFact({pref:mode,tables:tables,recent:recent});
   a=f.a;b=f.b;ans=a*b;
@@ -201,60 +201,97 @@ function pick(v,btn,timedOut){
   setTimeout(next,ok?1200:2600);
 }
 function finish(){
+  var NEXTMODE={beginner:'regular',regular:'expert'};
+  var MODENAME={beginner:'Beginner',regular:'Regular',expert:'Expert'};
   var brokeDown=consecW>=3;
   var n=Math.max(1,idx);
-  var need=gateNeeded(mode,level,n);   /* ramping promotion gate */
+  var practice=level>=LADDER_LEN[mode];
+  var need=gateNeeded(mode,level,n);
   var passed=!brokeDown&&c>=need.needC&&qc>=need.needQ;
-  if(passed)sWin();
+  var grad=false,trio=false;
   noteLevelResult(
-    {d:dayKey(new Date()),c:c,n:Math.max(1,idx),q:qc,lv:level+1,m:mode},
+    {d:dayKey(new Date()),c:c,n:n,q:qc,lv:level+1,m:mode},
     passed?{dur:Date.now()-testT0}:undefined);
-  if(passed&&level+1>(BESTS[mode]||0)){BESTS[mode]=level+1;saveBest(mode);}
+  if(!practice&&passed&&level+1>(BESTS[mode]||0)){
+    BESTS[mode]=level+1;saveBest(mode);
+    if(isGraduated(mode)){
+      grad=true;trio=graduatedCount()===3;
+      celebrate(mode==='beginner'?1:mode==='regular'?2:3,
+        {trio:trio,medals:['beginner','regular','expert'].filter(isGraduated)});
+    }
+  }
+  if(passed&&!grad)sWin();
   prog.textContent='';sc.textContent='';track.style.display='none';
   chrome(false,true);
   qrow.style.gridTemplateColumns='1fr';q.style.textAlign='center';
-  q.innerHTML='';q.textContent=c+' / '+idx;
+  q.innerHTML='';q.textContent=c+' / '+n;
   qa.textContent='';qa.style.opacity='0';
   opts.innerHTML='';opts.style.opacity='1';
   fb.innerHTML='';fb.style.textAlign='left';
   var p=document.createElement('div');
   p.style.cssText='font-size:22px;color:var(--ink);margin-bottom:8px;text-align:center;';
-  p.textContent=passed?('Level '+(level+1)+' passed!'):('Level '+(level+1)+' \u2014 not yet');
+  p.textContent=grad?('You graduated '+MODENAME[mode]+'!')
+    :practice?(passed?'Great practice!':'Practice done!')
+    :passed?('Level '+(level+1)+' passed!'):('Level '+(level+1)+' \u2014 not yet');
   fb.appendChild(p);
-  /* promotion checklist: this level's targets, met or not */
-  var chk=document.createElement('div');
-  chk.style.cssText='font-size:15px;line-height:1.7;margin-bottom:14px;text-align:center;font-variant-numeric:tabular-nums;';
-  var okC=c>=need.needC, okQ=qc>=need.needQ;
-  chk.innerHTML='<span style="color:'+(okC?'var(--ok-ink)':'var(--bad-ink)')+'">Correct '+c+' / '+n+' (need '+need.needC+') '+(okC?'✓':'✗')+'</span><br>'
-    +'<span style="color:'+(okQ?'var(--ok-ink)':'var(--bad-ink)')+'">Quick '+qc+' / '+n+' (need '+need.needQ+') '+(okQ?'✓':'✗')+'</span>';
-  fb.appendChild(chk);
-  var sub=document.createElement('div');
-  sub.style.cssText='font-size:14px;color:var(--muted);margin-bottom:20px;text-align:center;';
-  sub.textContent=brokeDown?'Three wrong in a row ends the level.'
-    :(passed?'On to the next one.':(okC?'Answer faster to move up.':'Answer more accurately to move up.'));
-  fb.appendChild(sub);
-  if(!log.length){
-    var d=document.createElement('div');
-    d.style.cssText='font-size:18px;text-align:center;color:var(--ok-ink);';
-    d.textContent='Nothing missed this round';
-    fb.appendChild(d);
+  if(grad){
+    var perf=ST.h.filter(function(r){return r.m===mode&&r.n>0&&r.c===r.n;}).length;
+    var gl=document.createElement('div');
+    gl.style.cssText='font-size:14px;color:var(--muted);margin-bottom:16px;text-align:center;';
+    gl.textContent='All '+LADDER_LEN[mode]+' levels cleared \u00b7 '+perf+' perfect \u00b7 best streak '+(ST.rec.streak||0);
+    fb.appendChild(gl);
   }else{
-    var h=document.createElement('div');
-    h.style.cssText='font-size:16px;color:var(--muted);margin-bottom:8px;';
-    h.textContent='Keep working on these:';
-    fb.appendChild(h);
-    log.forEach(function(r){
-      var row=document.createElement('div');
-      row.className='row';row.textContent=r.q+' = '+r.ans;
-      fb.appendChild(row);
-    });
+    var chk=document.createElement('div');
+    chk.style.cssText='font-size:15px;line-height:1.7;margin-bottom:14px;text-align:center;font-variant-numeric:tabular-nums;';
+    var okC=c>=need.needC, okQ=qc>=need.needQ;
+    var dimBad=practice?'var(--muted)':'var(--bad-ink)';
+    chk.innerHTML='<span style="color:'+(okC?'var(--ok-ink)':dimBad)+'">Correct '+c+' / '+n+' (target '+need.needC+') '+(okC?'\u2713':(practice?'':'\u2717'))+'</span><br>'
+      +'<span style="color:'+(okQ?'var(--ok-ink)':dimBad)+'">Quick '+qc+' / '+n+' (target '+need.needQ+') '+(okQ?'\u2713':(practice?'':'\u2717'))+'</span>';
+    fb.appendChild(chk);
+    var sub=document.createElement('div');
+    sub.style.cssText='font-size:14px;color:var(--muted);margin-bottom:20px;text-align:center;';
+    sub.textContent=brokeDown?'Three wrong in a row ends the level.'
+      :practice?'':(passed?'On to the next one.':(okC?'Answer faster to move up.':'Answer more accurately to move up.'));
+    fb.appendChild(sub);
+  }
+  if(!grad){
+    if(!log.length){
+      var d=document.createElement('div');
+      d.style.cssText='font-size:18px;text-align:center;color:var(--ok-ink);';
+      d.textContent='Nothing missed this round';
+      fb.appendChild(d);
+    }else{
+      var h=document.createElement('div');
+      h.style.cssText='font-size:16px;color:var(--muted);margin-bottom:8px;';
+      h.textContent='Keep working on these:';
+      fb.appendChild(h);
+      log.forEach(function(r){
+        var row=document.createElement('div');
+        row.className='row';row.textContent=r.q+' = '+r.ans;
+        fb.appendChild(row);
+      });
+    }
   }
   var wrap=document.createElement('div');
-  wrap.style.cssText='text-align:center;margin-top:22px;';
-  wrap.appendChild(bigBtn(passed?'Next level':'Try again',function(){
-    if(passed)level++;
-    startTest();
-  }));
+  wrap.style.cssText='text-align:center;margin-top:22px;display:flex;flex-direction:column;gap:12px;align-items:center;';
+  if(grad&&NEXTMODE[mode]){
+    wrap.appendChild(bigBtn('Move to '+MODENAME[NEXTMODE[mode]],function(){
+      mode=NEXTMODE[mode];
+      try{localStorage.setItem('ml-mode',mode);}catch(e){}
+      startRun();
+    }));
+  }
+  if(grad||practice){
+    wrap.appendChild(bigBtn('Keep practising',function(){
+      level=LADDER_LEN[mode];   /* practice holds at the final rung */
+      startTest();
+    }));
+  }else{
+    wrap.appendChild(bigBtn(passed?'Next level':'Try again',function(){
+      if(passed)level++;
+      startTest();
+    }));
+  }
   fb.appendChild(wrap);
   var lw=document.createElement('div');
   lw.style.cssText='text-align:center;margin-top:14px;';
@@ -279,7 +316,7 @@ function welcome(){
   track.style.display='none';qrow.style.display='';
   chrome(false,true);
   qrow.style.gridTemplateColumns='1fr';q.style.textAlign='center';
-  q.innerHTML='<span class="brand">PopTimes</span><span class="ver">1.3</span><div class="subtitle">times tables quiz</div>';
+  q.innerHTML='<span class="brand">PopTimes</span><span class="ver">1.4</span><div class="subtitle">times tables quiz</div>';
   qa.textContent='';qa.style.opacity='0';
   opts.innerHTML='';opts.style.opacity='1';
   fb.innerHTML='';fb.style.textAlign='center';

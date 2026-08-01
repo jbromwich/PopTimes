@@ -208,6 +208,10 @@ const LADDERS = {
 };
 const LADDER_LEN = {beginner:12, regular:12, expert:12};
 
+
+function isGraduated(mode){ return (BESTS[mode]||0) >= LADDER_LEN[mode]; }
+function graduatedCount(){ return ['beginner','regular','expert'].filter(isGraduated).length; }
+
 function ladderRung(mode, n){
   const list = LADDERS[mode];
   if (n < list.length) return list[n];
@@ -261,6 +265,144 @@ function pickFact(o){   // {pref, tables, recent, maxP}
 
 
 
+
+
+/* ================================================================
+   GRADUATION CELEBRATION — a temporary full-screen overlay drawn in
+   flat canvas style. tier: 1 beginner, 2 regular, 3 expert.
+   opts.medals: modes whose Graduate medal is earned (shown in the
+   lineup); opts.trio: this graduation completed all three.
+   pointer-events pass through, so the card beneath stays tappable.
+   ================================================================ */
+const MEDAL_CAP = new Path2D('M12 4L2 9l10 5 8-4v5h2V9zM6 13v4c0 1.7 2.7 3 6 3s6-1.3 6-3v-4l-6 3z');
+const MEDAL_CUP = new Path2D('M6 3h12v2h3v3c0 2.5-2 4.5-4.5 4.9A6 6 0 0113 16.9V19h3v2H8v-2h3v-2.1a6 6 0 01-3.5-3.1C5 13.5 3 11.5 3 9V5h3zm-1 4v2c0 1.2.8 2.3 2 2.8V7zm14 0h-2v4.8c1.2-.5 2-1.6 2-2.8z');
+const CONF_COLS = ['#b4503c','#dd8b33','#e2c94f','#6cb043','#7a8fc9','#9a6fbd','#e8b64c'];
+
+function gradMelody(tier){
+  audio();
+  if (tier===1){
+    [523,587,659,784,880,1047].forEach((f,i)=>beep(f, i===5?0.35:0.11, 'triangle', 0.13, i*0.11));
+  } else if (tier===2){
+    [392,523,659,784].forEach((f,i)=>beep(f,0.12,'triangle',0.13,i*0.10));
+    [523,659,784,1047].forEach((f,i)=>beep(f,0.14,'triangle',0.13,0.5+i*0.10));
+    beep(1319,0.5,'triangle',0.14,0.95);
+    beep(131,0.5,'sawtooth',0.10,1.0); beep(131,0.5,'sawtooth',0.10,1.6);  // ship horn
+  } else {
+    for (let i=0;i<8;i++) beep(392*Math.pow(2,i/4), 0.12, 'triangle', 0.12, i*0.09);
+    [523,659,784].forEach(f=>beep(f,0.9,'triangle',0.09,0.8));
+    beep(1047,1.1,'triangle',0.12,0.85);
+    beep(98,1.2,'sawtooth',0.08,0.85);
+    for (let i=0;i<6;i++) beep(2093+i*220,0.06,'sine',0.05,1.1+i*0.12);   // shimmer
+  }
+}
+
+function celebrate(tier, opts){
+  opts = opts||{};
+  const cv = document.createElement('canvas');
+  cv.style.cssText = 'position:fixed;inset:0;z-index:9;pointer-events:none';
+  document.body.appendChild(cv);
+  const dpr = Math.min(devicePixelRatio||1, 2);
+  const W2 = innerWidth, H2 = innerHeight;
+  cv.width = W2*dpr; cv.height = H2*dpr;
+  const c2 = cv.getContext('2d');
+  c2.setTransform(dpr,0,0,dpr,0,0);
+  gradMelody(tier);
+
+  const dur = (tier===1?2.6 : tier===2?3.6 : 5.0) + (opts.trio?2.0:0);
+  const confetti = [], rockets = [], sparks = [];
+  function burst(n, x, y, spread){
+    for (let i=0;i<n;i++) confetti.push({
+      x:x+(Math.random()-0.5)*spread, y:y+(Math.random()-0.5)*20,
+      vx:(Math.random()-0.5)*260, vy:-120-Math.random()*260,
+      w:5+Math.random()*5, h:8+Math.random()*6,
+      r:Math.random()*6.28, vr:(Math.random()-0.5)*10,
+      col:CONF_COLS[Math.floor(Math.random()*CONF_COLS.length)],
+    });
+  }
+  function rocket(delay){
+    rockets.push({t:-delay, x:W2*(0.15+Math.random()*0.7), y:H2, vy:-(H2*0.55+Math.random()*H2*0.25)/0.9,
+      col:CONF_COLS[Math.floor(Math.random()*CONF_COLS.length)]});
+  }
+  burst(tier*50, W2*0.25, H2*0.25, W2*0.3);
+  burst(tier*50, W2*0.75, H2*0.25, W2*0.3);
+  if (tier>=2) setTimeout(()=>burst(120, W2*0.5, H2*0.2, W2*0.8), 600);
+  const nRockets = (tier===3?6:0) + (opts.trio?5:0);
+  for (let i=0;i<nRockets;i++) rocket(0.3+i*0.55);
+
+  const medals = opts.medals && opts.medals.length ? opts.medals : [tier===1?'beginner':tier===2?'regular':'expert'];
+  const t0 = performance.now();
+  function drawMedal(x, y, sc, glyph){
+    c2.save(); c2.translate(x,y);
+    c2.fillStyle='rgba(232,182,76,0.18)';
+    c2.beginPath(); c2.arc(0,0,34*sc,0,7); c2.fill();
+    c2.lineWidth=4*sc; c2.strokeStyle='#e8b64c';
+    c2.beginPath(); c2.arc(0,0,34*sc,0,7); c2.stroke();
+    c2.translate(-16*sc,-16*sc); c2.scale(sc*32/24, sc*32/24);
+    c2.fillStyle='#e8b64c'; c2.fill(glyph);
+    c2.restore();
+  }
+  function frame(){
+    const t = (performance.now()-t0)/1000;
+    if (t>dur || !cv.parentNode){ cv.remove(); return; }
+    c2.clearRect(0,0,W2,H2);
+    const dt = 1/60;
+    // confetti
+    for (const p of confetti){
+      p.vy += 620*dt; p.x += p.vx*dt; p.y += p.vy*dt;
+      p.vx *= 0.995; p.r += p.vr*dt;
+      c2.save(); c2.translate(p.x,p.y); c2.rotate(p.r);
+      c2.globalAlpha = _clamp(2.2-(t/dur)*2.2, 0, 1);
+      c2.fillStyle = p.col;
+      c2.fillRect(-p.w/2,-p.h/2,p.w,Math.abs(Math.sin(p.r))*p.h+2);
+      c2.restore();
+    }
+    // fireworks
+    for (const r of rockets){
+      r.t += dt;
+      if (r.t<0) continue;
+      if (!r.burst){
+        r.y += r.vy*dt;
+        c2.fillStyle=r.col;
+        c2.fillRect(r.x-2, r.y, 4, 12);
+        if (r.t>0.9){
+          r.burst=true;
+          for (let i=0;i<36;i++){
+            const a=i/36*6.28, sp=90+Math.random()*160;
+            sparks.push({x:r.x,y:r.y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,col:r.col,life:1});
+          }
+          beep(80+Math.random()*60,0.25,'sawtooth',0.06);
+        }
+      }
+    }
+    for (const sp of sparks){
+      sp.vy += 220*(1/60); sp.x += sp.vx/60; sp.y += sp.vy/60; sp.life -= 1.1/60;
+      if (sp.life<=0) continue;
+      c2.globalAlpha = _clamp(sp.life,0,1);
+      c2.fillStyle = sp.col;
+      c2.fillRect(sp.x-2.5, sp.y-2.5, 5, 5);
+    }
+    c2.globalAlpha = 1;
+    // medal drop with bounce
+    const my = H2*0.16;
+    const k = _clamp(t/0.8, 0, 1);
+    const bounce = k<1 ? (1 - Math.abs(Math.cos(k*Math.PI*1.5))*(1-k)) : 1;
+    const yNow = -60 + (my+60)*bounce;
+    if (opts.trio && t>dur-2.2){
+      // trio finale: the earned medals line up
+      const xs = medals.map((_,i)=>W2/2 + (i-(medals.length-1)/2)*84);
+      medals.forEach((m,i)=>drawMedal(xs[i], my, 1, MEDAL_CAP));
+      drawMedal(W2/2, my+86, 1.15, MEDAL_CUP);
+    } else {
+      drawMedal(W2/2, yNow, tier===3?1.25:1, tier===3?MEDAL_CUP:MEDAL_CAP);
+      if (tier===3 && t>1.2){
+        const xs = medals.map((_,i)=>W2/2 + (i-(medals.length-1)/2)*70);
+        medals.forEach((m,i)=>drawMedal(xs[i], my+84, 0.7, MEDAL_CAP));
+      }
+    }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+}
 
 /* ---------- progress overlay: injected DOM + CSS ---------- */
 const PG_CSS = `/* ---- progress overlay (styles ported from the quiz) ---- */
