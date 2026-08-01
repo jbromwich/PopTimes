@@ -208,16 +208,15 @@ function finish(){
   var practice=level>=LADDER_LEN[mode];
   var need=gateNeeded(mode,level,n);
   var passed=!brokeDown&&c>=need.needC&&qc>=need.needQ;
-  var grad=false,trio=false;
+  var grad=false;
   noteLevelResult(
     {d:dayKey(new Date()),c:c,n:n,q:qc,lv:level+1,m:mode},
     passed?{dur:Date.now()-testT0}:undefined);
   if(!practice&&passed&&level+1>(BESTS[mode]||0)){
     BESTS[mode]=level+1;saveBest(mode);
     if(isGraduated(mode)){
-      grad=true;trio=graduatedCount()===3;
-      celebrate(mode==='beginner'?1:mode==='regular'?2:3,
-        {trio:trio,medals:['beginner','regular','expert'].filter(isGraduated)});
+      grad=true;
+      celebrate(mode==='beginner'?1:mode==='regular'?2:3);
     }
   }
   if(passed&&!grad)sWin();

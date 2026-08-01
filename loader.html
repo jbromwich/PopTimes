@@ -522,17 +522,14 @@ function update(dt){
       const need = gateNeeded(G.pref, G.level, n);
       const passed = G.lvlC >= need.needC && G.lvlQ >= need.needQ;
       G.lvlGate = {passed, n, needC:need.needC, needQ:need.needQ,
-                   practice: inPractice(), grad:false, trio:false};
+                   practice: inPractice(), grad:false};
       if (!G.lvlGate.practice && passed){
         G.level++;
         if (G.level > (BESTS[G.pref]||0)){
           BESTS[G.pref] = G.level; saveBest(G.pref);
           if (isGraduated(G.pref)){          // just crossed the finish line
             G.lvlGate.grad = true;
-            G.lvlGate.trio = graduatedCount()===3;
-            celebrate(G.pref==='beginner'?1:G.pref==='regular'?2:3,
-              {trio:G.lvlGate.trio,
-               medals:['beginner','regular','expert'].filter(isGraduated)});
+            celebrate(G.pref==='beginner'?1:G.pref==='regular'?2:3);
           }
         }
         if (!G.lvlGate.grad) sWin();

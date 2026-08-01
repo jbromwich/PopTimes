@@ -270,9 +270,9 @@ function pickFact(o){   // {pref, tables, recent, maxP}
 /* ================================================================
    GRADUATION CELEBRATION — a temporary full-screen overlay drawn in
    flat canvas style. tier: 1 beginner, 2 regular, 3 expert.
-   opts.medals: modes whose Graduate medal is earned (shown in the
-   lineup); opts.trio: this graduation completed all three.
-   pointer-events pass through, so the card beneath stays tappable.
+   Each graduation celebrates its own mode only — one medal (the cup
+   for Expert), escalating spectacle by tier. pointer-events pass
+   through, so the card beneath stays tappable.
    ================================================================ */
 const MEDAL_CAP = new Path2D('M12 4L2 9l10 5 8-4v5h2V9zM6 13v4c0 1.7 2.7 3 6 3s6-1.3 6-3v-4l-6 3z');
 const MEDAL_CUP = new Path2D('M6 3h12v2h3v3c0 2.5-2 4.5-4.5 4.9A6 6 0 0113 16.9V19h3v2H8v-2h3v-2.1a6 6 0 01-3.5-3.1C5 13.5 3 11.5 3 9V5h3zm-1 4v2c0 1.2.8 2.3 2 2.8V7zm14 0h-2v4.8c1.2-.5 2-1.6 2-2.8z');
@@ -296,8 +296,7 @@ function gradMelody(tier){
   }
 }
 
-function celebrate(tier, opts){
-  opts = opts||{};
+function celebrate(tier){
   const cv = document.createElement('canvas');
   cv.style.cssText = 'position:fixed;inset:0;z-index:9;pointer-events:none';
   document.body.appendChild(cv);
@@ -308,7 +307,7 @@ function celebrate(tier, opts){
   c2.setTransform(dpr,0,0,dpr,0,0);
   gradMelody(tier);
 
-  const dur = (tier===1?2.6 : tier===2?3.6 : 5.0) + (opts.trio?2.0:0);
+  const dur = tier===1?2.6 : tier===2?3.6 : 5.0;
   const confetti = [], rockets = [], sparks = [];
   function burst(n, x, y, spread){
     for (let i=0;i<n;i++) confetti.push({
@@ -326,10 +325,9 @@ function celebrate(tier, opts){
   burst(tier*50, W2*0.25, H2*0.25, W2*0.3);
   burst(tier*50, W2*0.75, H2*0.25, W2*0.3);
   if (tier>=2) setTimeout(()=>burst(120, W2*0.5, H2*0.2, W2*0.8), 600);
-  const nRockets = (tier===3?6:0) + (opts.trio?5:0);
+  const nRockets = tier===3?6:0;
   for (let i=0;i<nRockets;i++) rocket(0.3+i*0.55);
 
-  const medals = opts.medals && opts.medals.length ? opts.medals : [tier===1?'beginner':tier===2?'regular':'expert'];
   const t0 = performance.now();
   function drawMedal(x, y, sc, glyph){
     c2.save(); c2.translate(x,y);
@@ -387,18 +385,7 @@ function celebrate(tier, opts){
     const k = _clamp(t/0.8, 0, 1);
     const bounce = k<1 ? (1 - Math.abs(Math.cos(k*Math.PI*1.5))*(1-k)) : 1;
     const yNow = -60 + (my+60)*bounce;
-    if (opts.trio && t>dur-2.2){
-      // trio finale: the earned medals line up
-      const xs = medals.map((_,i)=>W2/2 + (i-(medals.length-1)/2)*84);
-      medals.forEach((m,i)=>drawMedal(xs[i], my, 1, MEDAL_CAP));
-      drawMedal(W2/2, my+86, 1.15, MEDAL_CUP);
-    } else {
-      drawMedal(W2/2, yNow, tier===3?1.25:1, tier===3?MEDAL_CUP:MEDAL_CAP);
-      if (tier===3 && t>1.2){
-        const xs = medals.map((_,i)=>W2/2 + (i-(medals.length-1)/2)*70);
-        medals.forEach((m,i)=>drawMedal(xs[i], my+84, 0.7, MEDAL_CAP));
-      }
-    }
+    drawMedal(W2/2, yNow, tier===3?1.3:1, tier===3?MEDAL_CUP:MEDAL_CAP);
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);
