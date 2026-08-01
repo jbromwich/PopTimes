@@ -52,10 +52,10 @@ canvas{display:block;width:100vw;height:100vh;height:100dvh}
 <button id="share" title="Share" aria-label="Share"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M8 7l4-4 4 4M5 12v8a1 1 0 001 1h12a1 1 0 001-1v-8"/></svg></button>
 <button id="chart" title="Progress" aria-label="See your progress"><svg width="20" height="20" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 15V9M9 15V3M15 15v-4"/></svg></button>
 <div id="credit">by <a href="https://julianbromwich.com" target="_blank" rel="noopener">Julian Bromwich</a></div>
-<script src="stats.js?v=9"></script>
+<script src="stats.js?v=10"></script>
 <script>
 'use strict';
-const APPVER = '1.8';   // major = feature, minor = fix
+const APPVER = '1.9';   // major = feature, minor = fix
 /* ================================================================
    MULTIPLICATION LOADER — cargo-dock theme
    Orders ride a conveyor toward the sea. Tap the crate whose
@@ -473,9 +473,12 @@ function finishTiling(){
       const cp = animCardPos(G.anim);
       o.ret = {fx:cp.x, fy:cp.y, t:0, dur:0.4};
     }
-    // highlight the true answer with its clean tiling
-    const right = G.cands.find(c=>c.correct && !c.gone);
-    if (right) right.revealT = 1.4;
+    // highlight the true answer — but only while the fact is still new;
+    // once it has real history (practice, Expert) you're expected to know it
+    if (o && factWin(o.a,o.b).m < MASTER_MIN){
+      const right = G.cands.find(c=>c.correct && !c.gone);
+      if (right) right.revealT = 1.4;
+    }
     G.phase='reveal';
     G.revealLeft = 1.4;
     G.anim.fade = 1;   // keep drawing the failed tiling while it fades
@@ -620,6 +623,9 @@ function update(dt){
     sSplash();
     G.splashes.push({x:L.edgeX+14, y:L.beltY+30, t:0, a:front.a, b:front.b,
       crate:G.mode==='factoring', col:front.col||CRATES[0]});
+    // never answered → always reveal what it was
+    G.fx.push({kind:'float', t:0, dur:2.2, x:L.edgeX-W*0.16, y:L.beltY-34,
+      text:front.a+' × '+front.b+' = '+(front.a*front.b), col:INK});
     failOrder(false);
     if (G.scene!=='broken') buildRound();
   }
@@ -637,7 +643,8 @@ function update(dt){
       if (o.ret.t >= o.ret.dur){
         o.ret = null;
         o.state = 'ride';
-        o.kv = -0.64;      // backward shove along the belt, decays
+        o.kv = -1.05;      // backward shove along the belt, decays — generous
+                           // setback so a miss leaves time to recover
         o.tumble = 1;
       }
     }
@@ -709,7 +716,7 @@ function drawComplete(){
   const missed = gate.grad ? [] : (G.lvlLog||[]).slice(0,3);
   const rows = missed.length ? missed.length+1 : 0;
   const twoBtns = gate.grad && NEXTMODE[G.pref];
-  const ph = 258 + rows*26 + (twoBtns?62:0) + (gate.grad?28+36:0);
+  const ph = (gate.grad?258:294) + rows*26 + (twoBtns?62:0) + (gate.grad?28+36:0);
   const y0 = H*0.42 - ph/2;
   ctx.fillStyle='rgba(8,16,24,0.85)';
   rrect(W*0.07, y0, W*0.86, ph, 14); ctx.fill();
@@ -731,17 +738,18 @@ function drawComplete(){
     ctx.fillText(perf+' perfect · best streak '+(ST.rec.streak||0), W/2, y0+106);
     ly = y0+140;
   } else {
-    // promotion checklist: this level's targets (practice: just targets)
+    // promotion gate bars: fill = your answers, tick = the gate.
+    // Green past the tick, amber short of it; the track is darker
+    // below the tick so the threshold reads even on a full bar.
     const okC = G.lvlC>=gate.needC, okQ = G.lvlQ>=gate.needQ;
-    ctx.fillStyle = okC ? '#6cb043' : (gate.practice ? DIM : BAD);
-    ctx.fillText('Correct  '+G.lvlC+' / '+gate.n+'   (target '+gate.needC+')  '+(okC?'✓':''), W/2, y0+76);
-    ctx.fillStyle = okQ ? '#6cb043' : (gate.practice ? DIM : BAD);
-    ctx.fillText('Quick  '+G.lvlQ+' / '+gate.n+'   (target '+gate.needQ+')  '+(okQ?'✓':''), W/2, y0+104);
+    gateBar('Correct', G.lvlC, gate.n, gate.needC, y0+66);
+    gateBar('Quick',   G.lvlQ, gate.n, gate.needQ, y0+116);
     if (!gate.passed && !gate.practice){
-      ctx.fillStyle=DIM;
-      ctx.fillText(okC ? 'Load faster to move up.' : 'Load more accurately to move up.', W/2, y0+132);
+      ctx.textAlign='center'; ctx.fillStyle=DIM;
+      ctx.font='600 '+Math.round(clamp(W*0.042,14,19))+'px ui-rounded, system-ui, sans-serif';
+      ctx.fillText(okC ? 'Load faster to move up.' : 'Load more accurately to move up.', W/2, y0+176);
     }
-    ly = y0+((gate.passed||gate.practice)?136:160);
+    ly = y0+((gate.passed||gate.practice)?168:196);
   }
   if (missed.length){
     ctx.fillStyle=DIM;
@@ -788,13 +796,40 @@ function drawComplete(){
   G.compProg={x:W/2-lw2/2-14, y:lyy-16, w:lw2+28, h:34};
 }
 
+// one gate-progress row: label + count above, bar with threshold tick below
+function gateBar(label, val, n, need, y){
+  const x0=W*0.16, bw=W*0.68, bh=10;
+  ctx.font='600 '+Math.round(clamp(W*0.04,13,17))+'px ui-rounded, system-ui, sans-serif';
+  ctx.textBaseline='middle';
+  ctx.textAlign='left';  ctx.fillStyle=DIM; ctx.fillText(label, x0, y);
+  ctx.textAlign='right'; ctx.fillStyle=INK; ctx.fillText(val+' / '+n, x0+bw, y);
+  const by=y+13, tick=x0+bw*clamp(need/Math.max(1,n),0,1);
+  ctx.fillStyle='rgba(238,244,248,0.16)';
+  rrect(x0,by,bw,bh,bh/2); ctx.fill();
+  ctx.save();                       // darker track below (left of) the tick
+  rrect(x0,by,bw,bh,bh/2); ctx.clip();
+  ctx.fillStyle='rgba(8,16,24,0.45)';
+  ctx.fillRect(x0,by,tick-x0,bh);
+  const fw=bw*clamp(val/Math.max(1,n),0,1);
+  if (fw>0){
+    ctx.fillStyle = val>=need ? '#6cb043' : '#e8b64c';
+    rrect(x0,by,Math.max(fw,bh),bh,bh/2); ctx.fill();
+  }
+  ctx.fillStyle='rgba(238,244,248,0.85)';
+  ctx.fillRect(tick-1.25, by-3, 2.5, bh+6);
+  ctx.restore();
+  ctx.fillStyle='rgba(238,244,248,0.85)';   // tick caps outside the clip
+  ctx.fillRect(tick-1.25, by-3, 2.5, bh+6);
+  ctx.textAlign='center';
+}
+
 function drawBroken(){
   const k = clamp((G.brkT-0.4)/0.4, 0, 1);
   if (k<=0) return;
   ctx.globalAlpha = k;
   ctx.fillStyle='rgba(8,16,24,0.78)';
   const y=H*0.40;
-  rrect(W*0.07, y-70, W*0.86, 200, 14); ctx.fill();
+  rrect(W*0.07, y-70, W*0.86, 226, 14); ctx.fill();
   ctx.textAlign='center'; ctx.textBaseline='middle';
   ctx.fillStyle=BAD;
   ctx.font='800 '+Math.round(clamp(W*0.075,24,38))+'px ui-rounded, system-ui, sans-serif';
@@ -806,9 +841,14 @@ function drawBroken(){
   ctx.fillStyle=DIM;
   ctx.fillText('You reached level '+(G.level+1), W/2, y+64);
   if (G.brkT > 0.8){
-    const p=Math.sin(G.t*4)*0.5+0.5;
-    ctx.fillStyle='rgba(238,244,248,'+(0.4+0.4*p)+')';
-    ctx.fillText('Tap to continue', W/2, y+110);
+    const bw=clamp(W*0.56,190,260), bh=clamp(H*0.056,42,52);
+    const bx=(W-bw)/2, by2=y+92;
+    G.brkBtn={x:bx,y:by2,w:bw,h:bh};
+    ctx.fillStyle='#a8752f';
+    rrect(bx,by2,bw,bh,bh/2); ctx.fill();
+    ctx.fillStyle='#fff';
+    ctx.font='800 '+Math.round(bh*0.40)+'px ui-rounded, system-ui, sans-serif';
+    ctx.fillText('Continue', W/2, by2+bh/2+1);
   }
   ctx.globalAlpha = 1;
 }
@@ -1482,7 +1522,7 @@ cvs.addEventListener('pointerdown', e=>{
     return;
   }
   if (G.scene==='broken'){
-    if (G.brkT > 0.8){ sTap(); dismissBreakdown(); }   // let the snap play first
+    if (G.brkT > 0.8 && hit(G.brkBtn)){ sTap(); dismissBreakdown(); }   // let the snap play first
     return;
   }
   if (G.scene==='complete'){

@@ -18,6 +18,17 @@ function beep(freq, dur, type, vol, when){
   o.connect(g); g.connect(AC.destination);
   o.start(t); o.stop(t+dur+0.05);
 }
+// iOS suspends (or kills) the AudioContext when a PWA is backgrounded;
+// revive it on return so sound doesn't need an app relaunch
+function wakeAudio(){
+  if (!AC) return;                                   // created lazily on first tap
+  if (AC.state==='closed'){ AC = null; audio(); return; }
+  if (AC.state!=='running') AC.resume();
+}
+document.addEventListener('visibilitychange', ()=>{ if (!document.hidden) wakeAudio(); });
+window.addEventListener('pageshow', wakeAudio);
+window.addEventListener('focus', wakeAudio);
+
 const sTap    = () => beep(660, 0.06, 'triangle', 0.08);
 const sGood   = () => { beep(523,0.09,'triangle',0.12); beep(659,0.09,'triangle',0.12,0.07); beep(784,0.14,'triangle',0.12,0.14); };
 const sWrong  = () => { beep(196,0.25,'sawtooth',0.07); beep(185,0.25,'sawtooth',0.06,0.05); };

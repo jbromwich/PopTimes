@@ -88,7 +88,7 @@ body{
   <div id="opts"></div>
   <div id="fb"></div>
 </div>
-<script src="stats.js?v=9"></script>
+<script src="stats.js?v=10"></script>
 <script>
 /* Times-tables quiz on the shared PopTimes progression:
    levels are ladder rungs shared with the Loader — pass a test
@@ -199,9 +199,13 @@ function pick(v,btn,timedOut){
     streak=0;consecW++;
     log.push({q:a+' \u00d7 '+b,ans:ans});
     if(btn){btn.style.background='var(--bad-bg)';btn.style.color='var(--bad-ink)';}
+    /* reveal the answer only if you never answered (timeout), or the
+       fact is still new; known facts you're expected to retrieve \u2014
+       the end-of-test recap always shows every missed answer anyway */
+    var reveal=timedOut||factWin(a,b).m<MASTER_MIN;
     setTimeout(function(){
       opts.style.opacity='0';opts.style.pointerEvents='none';
-      qa.textContent='= '+ans;qa.style.opacity='1';
+      if(reveal){qa.textContent='= '+ans;qa.style.opacity='1';}
     },timedOut?0:450);
   }
   sc.textContent='Score '+c;
@@ -247,12 +251,12 @@ function finish(){
     gl.textContent='All '+LADDER_LEN[mode]+' levels cleared \u00b7 '+perf+' perfect \u00b7 best streak '+(ST.rec.streak||0);
     fb.appendChild(gl);
   }else{
+    /* gate bars: fill = your answers, tick = the gate; green past the
+       tick, amber short of it, darker track below the tick */
     var chk=document.createElement('div');
-    chk.style.cssText='font-size:15px;line-height:1.7;margin-bottom:14px;text-align:center;font-variant-numeric:tabular-nums;';
+    chk.style.cssText='margin:2px 6px 16px;';
     var okC=c>=need.needC, okQ=qc>=need.needQ;
-    var dimBad=practice?'var(--muted)':'var(--bad-ink)';
-    chk.innerHTML='<span style="color:'+(okC?'var(--ok-ink)':dimBad)+'">Correct '+c+' / '+n+' (target '+need.needC+') '+(okC?'\u2713':(practice?'':'\u2717'))+'</span><br>'
-      +'<span style="color:'+(okQ?'var(--ok-ink)':dimBad)+'">Quick '+qc+' / '+n+' (target '+need.needQ+') '+(okQ?'\u2713':(practice?'':'\u2717'))+'</span>';
+    chk.innerHTML=gateBarRow('Correct',c,n,need.needC)+gateBarRow('Quick',qc,n,need.needQ);
     fb.appendChild(chk);
     var sub=document.createElement('div');
     sub.style.cssText='font-size:14px;color:var(--muted);margin-bottom:20px;text-align:center;';
@@ -308,6 +312,19 @@ function finish(){
   lw.appendChild(linkBtn('See your progress',function(){showProgress();}));
   fb.appendChild(lw);
 }
+function gateBarRow(label,val,n,need){
+  var ok=val>=need;
+  var tick=Math.round(need/Math.max(1,n)*100);
+  var w=Math.round(Math.min(1,val/Math.max(1,n))*100);
+  return '<div style="margin:12px 0;">'
+    +'<div style="display:flex;justify-content:space-between;font-size:14px;color:var(--muted);margin-bottom:5px;">'
+      +'<span>'+label+'</span><span style="color:var(--ink);font-variant-numeric:tabular-nums;">'+val+' / '+n+'</span></div>'
+    +'<div style="position:relative;height:10px;border-radius:5px;background:var(--line);">'
+      +'<div style="position:absolute;left:0;top:0;bottom:0;width:'+tick+'%;border-radius:5px 0 0 5px;background:rgba(0,0,0,0.15);"></div>'
+      +'<div style="position:absolute;left:0;top:0;bottom:0;width:'+w+'%;border-radius:5px;background:'+(ok?'#6cb043':'#e8b64c')+';"></div>'
+      +'<div style="position:absolute;left:calc('+tick+'% - 1px);top:-3px;bottom:-3px;width:2px;border-radius:1px;background:var(--ink);opacity:0.75;"></div>'
+    +'</div></div>';
+}
 function bigBtn(label,fn){
   var btn=document.createElement('button');
   btn.textContent=label;
@@ -326,7 +343,7 @@ function welcome(){
   track.style.display='none';qrow.style.display='';
   chrome(false,true);
   qrow.style.gridTemplateColumns='1fr';q.style.textAlign='center';
-  q.innerHTML='<span class="brand">PopTimes</span><span class="ver">1.8</span><div class="subtitle">times tables quiz</div>';
+  q.innerHTML='<span class="brand">PopTimes</span><span class="ver">1.9</span><div class="subtitle">times tables quiz</div>';
   qa.textContent='';qa.style.opacity='0';
   opts.innerHTML='';opts.style.opacity='1';
   fb.innerHTML='';fb.style.textAlign='center';
