@@ -1,7 +1,7 @@
 # PopTimes curriculum: ladders, focus, and promotion gates
 
 This is the agreed progression for both games (Loader and Quiz). The code
-follows this table directly — each mode's ladder in `stats.js` (`LADDERS`)
+follows this table directly — each mode's ladder in `shared.js` (`LADDERS`)
 is a definitions table whose rows carry the rung's focus tables, question
 mode, and promotion gate. Change the curriculum by editing that table, not
 logic.

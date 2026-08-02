@@ -10,7 +10,7 @@
 <link rel="apple-touch-icon" href="icons/icon-180.png">
 <meta property="og:title" content="Flash — a PopTimes game">
 <meta property="og:description" content="Quick-fire times tables quiz. A fun way to master the times tables.">
-<meta property="og:url" content="https://jbromwich.github.io/PopTimes/times-tables.html">
+<meta property="og:url" content="https://jbromwich.github.io/PopTimes/flash.html">
 <meta property="og:image" content="https://jbromwich.github.io/PopTimes/icons/icon-512.png">
 <meta property="og:type" content="website">
 <title>Flash — PopTimes</title>
@@ -89,7 +89,7 @@ body{
   <div id="opts"></div>
   <div id="fb"></div>
 </div>
-<script src="stats.js?v=13"></script>
+<script src="shared.js?v=13"></script>
 <script>
 /* Times-tables quiz on the shared PopTimes progression:
    levels are ladder rungs shared with the Loader — pass a test
@@ -99,7 +99,7 @@ var MODES={
   regular:{label:'Scholar',sub:'all tables'},
   expert:{label:'Master',sub:'hard tables'}
 };
-/* TESTLEN (questions per level) is shared from stats.js */
+/* TESTLEN (questions per level) is shared from shared.js */
 var STEPMS={beginner:2600,regular:2100,expert:1700};
 var GRACE=2500;
 var mode=localStorage.getItem('ml-mode')||localStorage.getItem('poptimes-mode');

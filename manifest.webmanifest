@@ -1,7 +1,7 @@
 {
   "name": "PopTimes",
   "short_name": "PopTimes",
-  "description": "Times tables games: quiz and Multiplication Loader",
+  "description": "Times tables games: Flash and Conveyor",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#0e2233",

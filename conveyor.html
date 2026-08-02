@@ -10,7 +10,7 @@
 <link rel="apple-touch-icon" href="icons/icon-180.png">
 <meta property="og:title" content="Conveyor — a PopTimes game">
 <meta property="og:description" content="Tap the matching crate and load the cargo ship. A fun way to master the times tables.">
-<meta property="og:url" content="https://jbromwich.github.io/PopTimes/loader.html">
+<meta property="og:url" content="https://jbromwich.github.io/PopTimes/conveyor.html">
 <meta property="og:image" content="https://jbromwich.github.io/PopTimes/icons/icon-512.png">
 <meta property="og:type" content="website">
 <title>Conveyor — PopTimes</title>
@@ -52,7 +52,7 @@ canvas{display:block;width:100vw;height:100vh;height:100dvh}
 <button id="share" title="Share" aria-label="Share"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M8 7l4-4 4 4M5 12v8a1 1 0 001 1h12a1 1 0 001-1v-8"/></svg></button>
 <button id="chart" title="Progress" aria-label="See your progress"><svg width="20" height="20" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 15V9M9 15V3M15 15v-4"/></svg></button>
 <div id="credit">by <a href="https://julianbromwich.com" target="_blank" rel="noopener">Julian Bromwich</a></div>
-<script src="stats.js?v=13"></script>
+<script src="shared.js?v=13"></script>
 <script>
 'use strict';
 const APPVER = '1.15';   // major = feature, minor = fix
@@ -187,7 +187,7 @@ const MISS_LIMIT = 3;   // misses in a row break the conveyor
    ================================================================ */
 // weakness-weighted fact picking, same formula as the quiz:
 // never-asked facts come first, then slow and often-missed ones
-// question selection lives in stats.js; the loader adds its
+// question selection lives in shared.js; the loader adds its
 // capacity cap and current focus tables
 function newFact(maxP){
   return pickFact({pref:G.pref, tables:G.tables, recent:G.recent, maxP:maxP});
@@ -714,7 +714,7 @@ function draw(){
 }
 
 const NEXTMODE = {beginner:'regular', regular:'expert'};
-// display names (MODENAME) and graduation titles (GRAD_TITLE) live in stats.js
+// display names (MODENAME) and graduation titles (GRAD_TITLE) live in shared.js
 
 function drawComplete(){
   // the completed level's numbers are still in G.lvl* (next level not started)
