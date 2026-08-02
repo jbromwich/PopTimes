@@ -765,7 +765,11 @@ function showProgress(){
   const pf=el('i');
   const pc2 = pace ? _clamp((PACE_SLOW-pace)/(PACE_SLOW-PACE_FAST),0,1) : 0;
   pf.style.width=Math.round(pc2*100)+'%';
-  pf.style.background = pace && pace<=PACE_FAST ? TIERCOL[4] : '#e8b64c';
+  // fill colour walks the grid's four mastery tiers as pace crosses the
+  // ticks: >5s brick red, 5–3s orange, 3–1.5s yellow, ≤1.5s grass green
+  pf.style.background = !pace ? TIERCOL[1]
+    : pace<=1500 ? TIERCOL[4] : pace<=3000 ? TIERCOL[3]
+    : pace<=5000 ? TIERCOL[2] : TIERCOL[1];
   pt.appendChild(pf);
   for (const [ms] of PACE_TICKS){                // ticks are permanent scale marks
     const tk=el('i','tick');
