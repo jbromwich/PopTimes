@@ -580,10 +580,10 @@ function update(dt){
   // all questions answered → ship tops off and sails (wait for the pour
   // to finish and the hold to visually reach full)
   if (G.lvlN >= G.lvlTotal && G.parts.length===0 && G.phase==='aim'
-      && G.fillShown > G.capacity-1){
-    // wrong-answer re-asks can leave stragglers queued beyond the
-    // budget — the level is done, so the belt empties for the sail
-    G.orders=[]; G.cands=[];
+      && G.fillShown > G.capacity-1 && !G.orders.length){
+    // !G.orders.length: if the FINAL question was missed, its retry
+    // crate is still riding — it gets its second chance (counting
+    // nothing) before the ship sails
     G.scene='payoff'; G.payT=0; sSail();
     noteLevelResult({d:dayKey(new Date()), c:G.lvlC, n:Math.max(1,G.lvlN), q:G.lvlQ, lv:G.level+1, m:G.pref},
       {dur: performance.now() - (G.lvlT0||performance.now())});
