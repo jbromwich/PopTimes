@@ -55,7 +55,7 @@ canvas{display:block;width:100vw;height:100vh;height:100dvh}
 <script src="shared.js?v=14"></script>
 <script>
 'use strict';
-const APPVER = '1.19';   // major = feature, minor = fix
+const APPVER = '1.20';   // major = feature, minor = fix
 /* ================================================================
    MULTIPLICATION LOADER — cargo-dock theme
    Orders ride a conveyor toward the sea. Tap the crate whose
@@ -403,6 +403,9 @@ function tapCandidate(c){
   // "quick" = answered while the order was still calm (before the wobble)
   G.tapQuick = o.p < 0.66;
   G.tapAt = performance.now();   // for the pace window (multiplying only)
+  // Master level runs the proof animation at double speed, so a fluent
+  // player can speed-run; Student/Scholar keep the full teaching tempo
+  const aspd = G.pref==='expert' ? 0.5 : 1;
 
   if (G.mode==='multiplying'){
     // orient the order's strips to the chosen crate
@@ -416,8 +419,8 @@ function tapCandidate(c){
     }
     G.anim = {cand:c, ok, t:0, tr, tc, oa:o.a, ob:o.b, flyFrom,
       gx:c.gx, gy:c.gy, u:G.unit, rows:c.rows, cols:c.cols,
-      fly:0.35, lay:0.30,
-      dur: 0.30 + Math.min(0.9, tr*tc*0.02)};
+      fly:0.35*aspd, lay:0.30*aspd, settle:0.35*aspd,
+      dur: (0.30 + Math.min(0.9, tr*tc*0.02))*aspd};
   } else {
     // factoring: prove on a pop-up tray sized to the order (a×b)
     const tr=o.a, tc=o.b;
@@ -433,8 +436,8 @@ function tapCandidate(c){
     else if (over1===over2 && (c.b===tr||c.a===tc)) { cr=c.b; cc=c.a; }
     G.anim = {cand:c, ok, t:0, tr:cr, tc:cc, oa:o.a, ob:o.b, flyFrom,
       gx, gy, u, rows:tr, cols:tc, tray:true,
-      fly:0.35, lay:0.30,
-      dur: 0.30 + Math.min(0.9, cr*cc*0.02)};
+      fly:0.35*aspd, lay:0.30*aspd, settle:0.35*aspd,
+      dur: (0.30 + Math.min(0.9, cr*cc*0.02))*aspd};
   }
 }
 
@@ -658,7 +661,7 @@ function update(dt){
   if (G.phase==='tiling' && G.anim){
     const A = G.anim;
     A.t += dt;
-    if (A.t >= A.fly + A.lay + A.dur + 0.35) finishTiling();
+    if (A.t >= A.fly + A.lay + A.dur + (A.settle!=null?A.settle:0.35)) finishTiling();
   }
   // wrong-answer card returning to the belt
   for (const o of G.orders){
