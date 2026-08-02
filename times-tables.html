@@ -150,7 +150,7 @@ function next(){
   quit.style.display='block';document.getElementById('exit').style.display='none';
   qa.textContent='';qa.style.opacity='0';
   opts.style.opacity='1';opts.style.pointerEvents='auto';
-  prog.textContent=(level>=LADDER_LEN[mode]?'Practice':'Level '+(level+1))+' \u00b7 Question '+idx+' of '+N;
+  prog.textContent=(level>=LADDER_LEN[mode]?'Practice':'Level '+(level+1)+' of '+LADDER_LEN[mode])+' \u00b7 Question '+idx+' of '+N;
   bar.style.width=Math.round((idx-1)/N*100)+'%';
   var f=pickFact({pref:mode,tables:tables,recent:recent});
   a=f.a;b=f.b;ans=a*b;
