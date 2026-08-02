@@ -76,14 +76,14 @@ const WIN = 10;          // window size
 const MASTER_MIN = 6;    // attempts needed before "mastered" is reachable
 const MASTER_RATE = 5/6; // quick share required (5/6, 6/7, 7/8, 8/9, 9/10)
 const MAXHIST = 200;
-let ST = {f:{}, h:[], rec:{streak:0, fast:0, days:0, pt:[], pace:0}};
+let ST = {f:{}, h:[], rec:{streak:0, fast:0, days:0, pt:[]}};
 function loadStats(){
   try{
     const r = localStorage.getItem(SKEY);
     if (r){
       const o = JSON.parse(r);
       ST.f = o.f||{}; ST.h = o.h||[];
-      ST.rec = Object.assign({streak:0, fast:0, days:0, pt:[], pace:0}, o.rec);
+      ST.rec = Object.assign({streak:0, fast:0, days:0, pt:[]}, o.rec);
       return;
     }
     // migrate v1 lifetime counters: seed each window proportionally
@@ -102,7 +102,7 @@ function loadStats(){
       saveStats();
       localStorage.removeItem('ml-stats-v1');
     }
-  }catch(e){ ST = {f:{}, h:[], rec:{streak:0, fast:0, days:0, pt:[], pace:0}}; }
+  }catch(e){ ST = {f:{}, h:[], rec:{streak:0, fast:0, days:0, pt:[]}}; }
 }
 function saveStats(){ try{ localStorage.setItem(SKEY, JSON.stringify(ST)); }catch(e){} }
 function fkey(a,b){ return Math.min(a,b)+'x'+Math.max(a,b); }
@@ -125,21 +125,24 @@ function noteStreak(n){
 /* ---- answer pace ----
    Rolling window of the last PACE_WIN correct MULTIPLYING answer times
    (ms, from answers-tappable to tap; both games pool into it; factoring
-   is excluded as inherently slower). Best pace = the lowest window
-   average ever, and only a full window can set it — one lucky instant
-   answer can't. Targets: Student 5s, Scholar 3s, Master 1.5s. */
-const PACE_WIN = 20;
+   is excluded as inherently slower). The stats page shows the LIVE
+   window average — it moves up and down with the player, no watermark —
+   once at least PACE_MIN_SHOW answers (one clean Student level) exist.
+   Targets: Student 5s, Scholar 3s, Master 1.5s. */
+const PACE_WIN = 60;
+const PACE_MIN_SHOW = 10;
 const PACE_SLOW = 10000, PACE_FAST = 1500;          // bar ends (ms)
 const PACE_TICKS = [[5000,'5'],[3000,'3'],[1500,'1.5']];
 function notePace(ms){
   if (!(ms>0) || ms>60000) return;                  // ignore junk samples
   const r = ST.rec;
   r.pt = (r.pt||[]).concat(Math.round(ms)).slice(-PACE_WIN);
-  if (r.pt.length===PACE_WIN){
-    const avg = Math.round(r.pt.reduce((a,b)=>a+b,0)/PACE_WIN);
-    if (!r.pace || avg < r.pace) r.pace = avg;
-  }
   saveStats();
+}
+function currentPace(){                             // 0 = not enough data yet
+  const pt = ST.rec.pt||[];
+  if (pt.length < PACE_MIN_SHOW) return 0;
+  return Math.round(pt.reduce((a,b)=>a+b,0)/pt.length);
 }
 // window summary and the agreed tier grid:
 // 0 = never asked, 1 < 1/3 quick, 2 < 2/3, 3 < 5/6 (or too few attempts),
@@ -751,11 +754,11 @@ function showProgress(){
   mf.style.background=TIERCOL[4];
   mt.appendChild(mf); mm.appendChild(mt);
 
-  // answer speed: best rolling-window pace toward the three title targets
+  // answer speed: live rolling-window average against the title targets
   const pm=el('div','pg-meter');
   const ph2=el('div','mh');
   ph2.appendChild(el('span',null,'Answer speed'));
-  const pace=ST.rec.pace||0;
+  const pace=currentPace();
   ph2.appendChild(Object.assign(el('b'),{textContent: pace ? (pace/1000).toFixed(1).replace(/\.0$/,'')+'s per answer' : '—'}));
   pm.appendChild(ph2);
   const pt=el('div','mt pace');
@@ -764,8 +767,7 @@ function showProgress(){
   pf.style.width=Math.round(pc2*100)+'%';
   pf.style.background = pace && pace<=PACE_FAST ? TIERCOL[4] : '#e8b64c';
   pt.appendChild(pf);
-  for (const [ms] of PACE_TICKS){
-    if (pace && pace<=ms) continue;              // reached ticks disappear
+  for (const [ms] of PACE_TICKS){                // ticks are permanent scale marks
     const tk=el('i','tick');
     tk.style.left = Math.round((PACE_SLOW-ms)/(PACE_SLOW-PACE_FAST)*100)+'%';
     pt.appendChild(tk);
@@ -806,7 +808,7 @@ function showProgress(){
   const cl=el('button','link','Clear my history');
   cl.addEventListener('click',()=>{
     if(confirm('Clear all your progress? This cannot be undone.')){
-      ST={f:{},h:[],rec:{streak:0,fast:0,days:0,pt:[],pace:0}}; saveStats();
+      ST={f:{},h:[],rec:{streak:0,fast:0,days:0,pt:[]}}; saveStats();
       for (const m of ['beginner','regular','expert']){
         try{ localStorage.removeItem('ml-best-'+m); }catch(e){}
         BESTS[m]=0;
