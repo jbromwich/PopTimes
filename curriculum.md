@@ -44,8 +44,10 @@ dropping (Quiz). Three wrong in a row always ends the level as a fail.
 Gates chain across modes — each mode ramps from its base to the next
 mode's base (60/10 → 70/20 → 80/30), and the game's single summit,
 100/85, is Expert rung 12. Beyond rung 12 (endless play), the final
-gate holds. Test lengths: Beginner 10, Regular 15, Expert 20 questions;
-Loader ship capacities scale similarly.
+gate holds. Both games use the same level length — Beginner 10,
+Regular 15, Expert 20 questions. In the Loader the ship fills one equal
+step per question and is exactly full on the last one, so its cargo is a
+progress bar; the block count of any single crate is decorative only.
 
 ## The ladder table
 
