@@ -55,7 +55,7 @@ canvas{display:block;width:100vw;height:100vh;height:100dvh}
 <script src="shared.js?v=13"></script>
 <script>
 'use strict';
-const APPVER = '1.16';   // major = feature, minor = fix
+const APPVER = '1.17';   // major = feature, minor = fix
 /* ================================================================
    MULTIPLICATION LOADER — cargo-dock theme
    Orders ride a conveyor toward the sea. Tap the crate whose
@@ -209,6 +209,10 @@ function recordFact(a,b,res){
 }
 
 function spawnOrder(atP){
+  // question budget: never queue more orders than the level has
+  // questions left (resolved so far + already on the belt), so the
+  // belt is empty when the ship sails
+  if (G.scene==='play' && G.lvlN + G.orders.length >= G.lvlTotal) return;
   let f = newFact();
   // avoid repeating the same product as the order just ahead
   for (let tries=0; tries<8; tries++){
@@ -570,6 +574,9 @@ function update(dt){
   // to finish and the hold to visually reach full)
   if (G.lvlN >= G.lvlTotal && G.parts.length===0 && G.phase==='aim'
       && G.fillShown > G.capacity-1){
+    // wrong-answer re-asks can leave stragglers queued beyond the
+    // budget — the level is done, so the belt empties for the sail
+    G.orders=[]; G.cands=[];
     G.scene='payoff'; G.payT=0; sSail();
     noteLevelResult({d:dayKey(new Date()), c:G.lvlC, n:Math.max(1,G.lvlN), q:G.lvlQ, lv:G.level+1, m:G.pref},
       {dur: performance.now() - (G.lvlT0||performance.now())});
