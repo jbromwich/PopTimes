@@ -1447,7 +1447,7 @@ function drawHUD(){
   // question progress, centred across the top row
   ctx.font='700 '+Math.round(clamp(H*0.017,11,15))+'px ui-rounded, system-ui, sans-serif';
   ctx.fillStyle='rgba(238,244,248,0.5)'; ctx.textAlign='center';
-  ctx.fillText(Math.min(G.lvlN, G.lvlTotal)+' / '+G.lvlTotal, W/2, L.beltTop*0.5+1);
+  ctx.fillText(Math.min(G.lvlN+1, G.lvlTotal)+' / '+G.lvlTotal, W/2, L.beltTop*0.5+1);
   if (G.combo>1){
     const p=Math.min(1,(G.combo-1)/8);
     ctx.fillStyle='rgba(255,'+Math.round(220-90*p)+',120,'+(0.75+0.25*Math.sin(G.t*6))+')';
