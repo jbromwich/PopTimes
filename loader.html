@@ -52,10 +52,10 @@ canvas{display:block;width:100vw;height:100vh;height:100dvh}
 <button id="share" title="Share" aria-label="Share"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M8 7l4-4 4 4M5 12v8a1 1 0 001 1h12a1 1 0 001-1v-8"/></svg></button>
 <button id="chart" title="Progress" aria-label="See your progress"><svg width="20" height="20" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 15V9M9 15V3M15 15v-4"/></svg></button>
 <div id="credit">by <a href="https://julianbromwich.com" target="_blank" rel="noopener">Julian Bromwich</a></div>
-<script src="stats.js?v=12"></script>
+<script src="stats.js?v=13"></script>
 <script>
 'use strict';
-const APPVER = '1.12';   // major = feature, minor = fix
+const APPVER = '1.13';   // major = feature, minor = fix
 /* ================================================================
    MULTIPLICATION LOADER — cargo-dock theme
    Orders ride a conveyor toward the sea. Tap the crate whose
@@ -152,7 +152,7 @@ const G = {
   tables: [],           // times tables in play this level
   combo: 0,
   pace: 0,              // 0..1 escalation
-  fill: 0, fillShown: 0, capacity: 100,
+  fill: 0, fillShown: 0, capacity: 100, lvlTotal: 10,
   orders: [],           // conveyor cards, index 0 = frontmost
   cands: [],            // candidate blocks / factor-pair cards
   unit: 16,             // shared unit-cell size this round
@@ -200,30 +200,21 @@ function recordFact(a,b,res){
   if (res==='w') G.streak = 0;
   else { G.streak = (G.streak||0) + 1; noteStreak(G.streak); }
   G.lvlN++; if(res!=='w')G.lvlC++; if(res==='q')G.lvlQ++;
+  // the ship is the level's progress bar: it fills one equal step per
+  // resolved question, so it's exactly full on question lvlTotal — the
+  // block count of any single crate is purely decorative pour flavour
+  G.fill = G.capacity * Math.min(1, G.lvlN / G.lvlTotal);
   if (res==='w' && !(G.lvlLog||[]).some(m=>m.k===fkey(a,b)))
     (G.lvlLog=G.lvlLog||[]).push({k:fkey(a,b), a, b});
 }
 
-function queuedUnits(){ return G.orders.reduce((s,o)=>s+o.a*o.b, 0); }
-
 function spawnOrder(atP){
-  // only send orders the ship can still take, counting what's queued —
-  // so nothing is ever left on the belt when the ship sails
-  if (G.scene==='play' && G.fill >= G.capacity) return;
-  const room = G.capacity - G.fill - queuedUnits();
-  let f = newFact(room);
-  if (!f){
-    if (G.orders.length) return;   // queued orders already fill the plan
-    // nothing fits the sliver of space left — send the smallest product
-    // available so the ship can top off (it may overflow to finish)
-    const s = modePairsFor(G.pref).reduce((m,p)=>p[0]*p[1]<m[0]*m[1]?p:m);
-    f = Math.random()<0.5 ? {a:s[0],b:s[1]} : {a:s[1],b:s[0]};
-  }
+  let f = newFact();
   // avoid repeating the same product as the order just ahead
   for (let tries=0; tries<8; tries++){
     const prev = G.orders[G.orders.length-1];
     if (!prev || prev.a*prev.b !== f.a*f.b) break;
-    const g = newFact(room); if (!g) break;
+    const g = newFact(); if (!g) break;
     f.a=g.a; f.b=g.b;
   }
   G.orders.push({a:f.a, b:f.b, p:atP!==undefined?atP:-0.05, state:'ride', st:0,
@@ -333,11 +324,10 @@ function startLevel(keepBelt){
   G.pace = paceFloor();
   G.fill = 0; G.fillShown = 0;
   G.lvlN = 0; G.lvlC = 0; G.lvlQ = 0;
+  G.lvlTotal = TESTLEN[G.pref];   // fixed questions per level (10/15/20)
   G.lvlLog = [];   // facts missed this level, for the completion recap
   G.lvlT0 = performance.now();
-  // harder modes deal bigger products, so the hold scales up to match
-  const capMult = G.pref==='expert' ? 2 : G.pref==='regular' ? 1.6 : 1;
-  G.capacity = Math.round((90 + effLevel()*25) * capMult);
+  G.capacity = 100;               // nominal hold size; fill is cosmetic now
   G.parts=[]; G.fx=[]; G.anim=null;
   G.phase='aim';
   // between levels the belt keeps rolling: unanswered orders stay and
@@ -371,12 +361,8 @@ function failOrder(keep){
   G.missRow = (G.missRow||0) + 1;
   G.pace = clamp(G.pace - 0.18, paceFloor(), 1);
   if (G.missRow >= MISS_LIMIT){ breakDown(); return; }
-  if (!keep){
-    // expired: costs progress
-    const loss = Math.min(G.fill, Math.round(G.capacity*0.06)+2);
-    G.fill -= loss;
-    if (loss>0) G.fx.push({kind:'float', t:0, dur:1.2, x:W*0.5, y:L.holdTop-6, text:'−'+loss, col:BAD});
-  }
+  // fill is progress-driven now (set in recordFact), so a miss doesn't
+  // dock cargo — the splash and lost order are penalty enough
 }
 
 function retryAfterBreakdown(){
@@ -471,10 +457,7 @@ function finishTiling(){
         s:Math.max(4,u*0.42), col:A.cand.col?A.cand.col[0]:'#c98a4b', spin:rnd(-6,6), a:rnd(0,6),
         land:false});
     }
-    G.fill += A.tr*A.tc;
     if (A.cand.slot) A.cand.gone = true;
-    G.fx.push({kind:'float', t:0, dur:1.1, x:A.gx+A.tc*u/2, y:A.gy-12,
-      text:'+'+(A.tr*A.tc), col:GOOD});
     fulfilOrder();
     G.anim=null;
     G.phase='aim';
@@ -583,8 +566,10 @@ function update(dt){
   if (G.scene==='complete') return;   // belt stays frozen until Next level
   if (G.scene!=='play') return;
 
-  // hold full → payoff (wait for pour to finish)
-  if (G.fill >= G.capacity && G.parts.length===0 && G.phase==='aim'){
+  // all questions answered → ship tops off and sails (wait for the pour
+  // to finish and the hold to visually reach full)
+  if (G.lvlN >= G.lvlTotal && G.parts.length===0 && G.phase==='aim'
+      && G.fillShown > G.capacity-1){
     G.scene='payoff'; G.payT=0; sSail();
     noteLevelResult({d:dayKey(new Date()), c:G.lvlC, n:Math.max(1,G.lvlN), q:G.lvlQ, lv:G.level+1, m:G.pref},
       {dur: performance.now() - (G.lvlT0||performance.now())});
@@ -1370,12 +1355,6 @@ function drawHold(){
     const y=g.hBot-(g.hBot-g.hTop)*i/4;
     ctx.beginPath(); ctx.moveTo(g.hx0, y); ctx.lineTo(g.hx0+10, y); ctx.stroke();
   }
-  // capacity text on the coaming
-  ctx.fillStyle=INK;
-  ctx.font='700 '+Math.round(clamp(H*0.017,11,15))+'px ui-rounded, system-ui, sans-serif';
-  ctx.textAlign='right'; ctx.textBaseline='bottom';
-  ctx.fillText(Math.round(G.fillShown)+' / '+G.capacity, g.hx1, g.hTop-6);
-
   ctx.restore();
 
   // water in front of the hull: waves + bow foam
@@ -1464,7 +1443,13 @@ function drawHUD(){
   ctx.textBaseline='middle';
   ctx.font='700 '+Math.round(clamp(H*0.019,12,16))+'px ui-rounded, system-ui, sans-serif';
   ctx.fillStyle=DIM; ctx.textAlign='left';
-  ctx.fillText(inPractice() ? 'Practice' : 'Level '+(G.level+1), 12, L.beltTop*0.5);
+  const lvlTxt = inPractice() ? 'Practice' : 'Level '+(G.level+1);
+  ctx.fillText(lvlTxt, 12, L.beltTop*0.5);
+  // question progress, just right of the level indicator
+  const lw = ctx.measureText(lvlTxt).width;
+  ctx.font='700 '+Math.round(clamp(H*0.016,10,14))+'px ui-rounded, system-ui, sans-serif';
+  ctx.fillStyle='rgba(238,244,248,0.45)';
+  ctx.fillText(Math.min(G.lvlN, G.lvlTotal)+' / '+G.lvlTotal, 12+lw+12, L.beltTop*0.5+1);
   if (G.combo>1){
     const p=Math.min(1,(G.combo-1)/8);
     ctx.fillStyle='rgba(255,'+Math.round(220-90*p)+',120,'+(0.75+0.25*Math.sin(G.t*6))+')';

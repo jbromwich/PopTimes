@@ -237,6 +237,9 @@ const LADDERS = {
   ],
 };
 const LADDER_LEN = {beginner:12, regular:12, expert:12};
+// questions per level, shared by both games (loader fills its ship over
+// exactly this many; quiz asks exactly this many)
+const TESTLEN = {beginner:10, regular:15, expert:20};
 
 
 function isGraduated(mode){ return (BESTS[mode]||0) >= LADDER_LEN[mode]; }
