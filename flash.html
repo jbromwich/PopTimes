@@ -205,29 +205,51 @@ function pick(v,btn,timedOut){
   if(lock)return;lock=true;clearTimeout(tick);
   var ok=!timedOut&&v===ans;
   var wasQuick=ok&&!dropped;   /* quick = answered before options started dropping */
+  var fastMode=mode!=='beginner';   /* Scholar/Master allow speed runs */
   audio(); if(ok)sGood();else sWrong();
   recordOutcome(a,b, ok?(wasQuick?'q':'c'):'w');
+  var delay;
   if(ok){
     c++;if(wasQuick)qc++;streak++;noteStreak(streak);consecW=0;
     notePace(Date.now()-t0);   /* quiz questions are always multiplying */
     if(btn){btn.style.background='var(--ok-bg)';btn.style.color='var(--ok-ink)';}
     qa.textContent='= '+ans;qa.style.opacity='1';
+    delay=fastMode?300:1200;   /* a blink of green, then straight on */
   }else{
     streak=0;consecW++;
     log.push({q:a+' \u00d7 '+b,ans:ans});
     if(btn){btn.style.background='var(--bad-bg)';btn.style.color='var(--bad-ink)';}
-    /* reveal the answer only if you never answered (timeout), or the
-       fact is still new; known facts you're expected to retrieve \u2014
-       the end-of-test recap always shows every missed answer anyway */
-    var reveal=timedOut||factWin(a,b).m<MASTER_MIN;
-    setTimeout(function(){
-      opts.style.opacity='0';opts.style.pointerEvents='none';
-      if(reveal){qa.textContent='= '+ans;qa.style.opacity='1';}
-    },timedOut?0:450);
+    /* reveal the answer if you never answered (timeout), always on the
+       Student level, or while the fact is still new. Otherwise \u2014 a
+       known fact on Scholar/Master \u2014 flash red and move straight on;
+       the end-of-test recap still shows every missed answer */
+    var reveal=timedOut||mode==='beginner'||factWin(a,b).m<MASTER_MIN;
+    if(reveal){
+      setTimeout(function(){
+        opts.style.opacity='0';opts.style.pointerEvents='none';
+        qa.textContent='= '+ans;qa.style.opacity='1';
+      },timedOut?0:450);
+      delay=2600;
+    }else{
+      redFlash();
+      opts.style.pointerEvents='none';
+      delay=550;
+    }
   }
   sc.textContent='Score '+c;
   bar.style.width=Math.round(idx/N*100)+'%';
-  setTimeout(next,ok?1200:2600);
+  setTimeout(next,delay);
+}
+/* brief full-screen red tint for a fast-mode miss */
+var rflash=null;
+function redFlash(){
+  if(!rflash){
+    rflash=document.createElement('div');
+    rflash.style.cssText='position:fixed;inset:0;background:#c0392b;opacity:0;pointer-events:none;transition:opacity .1s;z-index:6;';
+    document.body.appendChild(rflash);
+  }
+  rflash.style.opacity='0.3';
+  setTimeout(function(){rflash.style.opacity='0';},200);
 }
 function finish(){
   var NEXTMODE={beginner:'regular',regular:'expert'};
@@ -385,7 +407,7 @@ function welcome(){
   track.style.display='none';qrow.style.display='';
   chrome(false,true);
   qrow.style.gridTemplateColumns='1fr';q.style.textAlign='center';
-  q.innerHTML='<span class="brand">Flash</span><span class="ver">1.18</span><div class="subtitle">a PopTimes quiz · times tables</div>';
+  q.innerHTML='<span class="brand">Flash</span><span class="ver">1.19</span><div class="subtitle">a PopTimes quiz · times tables</div>';
   qa.textContent='';qa.style.opacity='0';
   opts.innerHTML='';opts.style.opacity='1';
   fb.innerHTML='';fb.style.textAlign='center';

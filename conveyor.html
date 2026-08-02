@@ -55,7 +55,7 @@ canvas{display:block;width:100vw;height:100vh;height:100dvh}
 <script src="shared.js?v=14"></script>
 <script>
 'use strict';
-const APPVER = '1.18';   // major = feature, minor = fix
+const APPVER = '1.19';   // major = feature, minor = fix
 /* ================================================================
    MULTIPLICATION LOADER — cargo-dock theme
    Orders ride a conveyor toward the sea. Tap the crate whose
@@ -553,9 +553,11 @@ function update(dt){
       G.lvlGate = {passed, n, needC:need.needC, needQ:need.needQ,
                    practice: inPractice(), grad:false};
       if (!G.lvlGate.practice && passed){
-        G.level++;
-        if (G.level > (BESTS[G.pref]||0)){
-          BESTS[G.pref] = G.level; saveBest(G.pref);
+        // progress is banked now (so exiting keeps the clear), but the
+        // working level number only advances when Next level is tapped —
+        // the HUD behind the card keeps showing the level just finished
+        if (G.level+1 > (BESTS[G.pref]||0)){
+          BESTS[G.pref] = G.level+1; saveBest(G.pref);
           if (isGraduated(G.pref)){          // just crossed the finish line
             G.lvlGate.grad = true;
             celebrate(G.pref==='beginner'?1:G.pref==='regular'?2:3);
@@ -733,7 +735,7 @@ const NEXTMODE = {beginner:'regular', regular:'expert'};
 function drawComplete(){
   // the completed level's numbers are still in G.lvl* (next level not started)
   const gate = G.lvlGate || {passed:true, n:Math.max(1,G.lvlN), needC:0, needQ:0};
-  const lvlNo = gate.passed && !gate.practice ? G.level : G.level+1;
+  const lvlNo = G.level+1;   // the level just played (increment waits for Next)
   const missed = gate.grad ? [] : (G.lvlLog||[]).slice(0,4);
   const recRows = Math.ceil(missed.length/2);
   const twoBtns = gate.grad && NEXTMODE[G.pref];
@@ -1604,7 +1606,11 @@ cvs.addEventListener('pointerdown', e=>{
       startGame();   // fresh belt in the new mode
       return;
     }
-    if (hit(G.compNext)){ sTap(); startLevel(true); G.scene='play'; }
+    if (hit(G.compNext)){
+      sTap();
+      if (G.lvlGate && G.lvlGate.passed && !G.lvlGate.practice) G.level++;   // advance only now
+      startLevel(true); G.scene='play';
+    }
     return;
   }
   if (G.scene!=='play' || G.phase!=='aim') return;
