@@ -209,10 +209,11 @@ function recordFact(a,b,res){
 }
 
 function spawnOrder(atP){
-  // question budget: never queue more orders than the level has
-  // questions left (resolved so far + already on the belt), so the
-  // belt is empty when the ship sails
-  if (G.scene==='play' && G.lvlN + G.orders.length >= G.lvlTotal) return;
+  // question budget: a level asks exactly lvlTotal DISTINCT questions.
+  // Retries (wrong answers riding again) don't count against the
+  // budget, so a miss never costs the player a fresh question.
+  const fresh = G.orders.reduce((s,o)=>s+(o.retry?0:1), 0);
+  if (G.scene==='play' && G.lvlN + fresh >= G.lvlTotal) return;
   let f = newFact();
   // avoid repeating the same product as the order just ahead
   for (let tries=0; tries<8; tries++){
@@ -447,8 +448,12 @@ function animCardPos(A){
 function finishTiling(){
   const A = G.anim, o = G.orders[0];
   if (A.ok){
-    recordFact(o.a, o.b, G.tapQuick ? 'q' : 'c');
-    if (G.mode==='multiplying' && G.qT0) notePace(G.tapAt - G.qT0);
+    // a retry (answered wrong earlier) is bonus practice: the crate
+    // still loads, but nothing is counted a second time
+    if (!o.retry){
+      recordFact(o.a, o.b, G.tapQuick ? 'q' : 'c');
+      if (G.mode==='multiplying' && G.qT0) notePace(G.tapAt - G.qT0);
+    }
     sGood(); sPour();
     // the order card rides down into the hold with its cargo
     const cp = animCardPos(A);
@@ -466,7 +471,9 @@ function finishTiling(){
     G.anim=null;
     G.phase='aim';
   } else {
-    if (o) recordFact(o.a, o.b, 'w');
+    // count the miss once; from here on the order rides as a retry
+    if (o && !o.retry) recordFact(o.a, o.b, 'w');
+    if (o) o.retry = true;
     sWrong();
     G.shake = 1;
     A.cand.wrongT = 1;
@@ -633,7 +640,7 @@ function update(dt){
   // expiry: front order falls off the dock
   const front = G.orders[0];
   if (front && front.p >= 1 && G.phase==='aim'){
-    recordFact(front.a, front.b, 'w');
+    if (!front.retry) recordFact(front.a, front.b, 'w');   // retries count nothing
     G.orders.shift();
     sSplash();
     G.splashes.push({x:L.edgeX+14, y:L.beltY+30, t:0, a:front.a, b:front.b,
