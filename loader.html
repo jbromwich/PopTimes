@@ -8,12 +8,12 @@
 <meta name="theme-color" content="#0e2233">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
-<meta property="og:title" content="Multiplication Loader — PopTimes">
+<meta property="og:title" content="Conveyor — a PopTimes game">
 <meta property="og:description" content="Tap the matching crate and load the cargo ship. A fun way to master the times tables.">
 <meta property="og:url" content="https://jbromwich.github.io/PopTimes/loader.html">
 <meta property="og:image" content="https://jbromwich.github.io/PopTimes/icons/icon-512.png">
 <meta property="og:type" content="website">
-<title>Multiplication Loader</title>
+<title>Conveyor — PopTimes</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;overflow:hidden;background:#0e2233}
@@ -55,7 +55,7 @@ canvas{display:block;width:100vw;height:100vh;height:100dvh}
 <script src="stats.js?v=13"></script>
 <script>
 'use strict';
-const APPVER = '1.14';   // major = feature, minor = fix
+const APPVER = '1.15';   // major = feature, minor = fix
 /* ================================================================
    MULTIPLICATION LOADER — cargo-dock theme
    Orders ride a conveyor toward the sea. Tap the crate whose
@@ -1478,14 +1478,14 @@ function drawMenu(){
   ctx.fillStyle=INK;
   const tfs = Math.round(clamp(W*0.09,30,52));
   ctx.font='800 '+tfs+'px ui-rounded, system-ui, sans-serif';
-  ctx.fillText('Multiplication', W/2, H*0.33);
-  const y2 = H*0.33 + clamp(W*0.10,34,58);
-  ctx.fillText('Loader', W/2, y2);
+  const y2 = H*0.36;
+  const titleW = ctx.measureText('Conveyor').width;   // measured in title font
+  ctx.fillText('Conveyor', W/2, y2);
   // version tag, quiz-style
   ctx.fillStyle=DIM;
   ctx.font='600 '+Math.round(tfs*0.34)+'px ui-rounded, system-ui, sans-serif';
   ctx.textAlign='left';
-  ctx.fillText(APPVER, W/2 + ctx.measureText('Loader').width*1.55, y2+2);
+  ctx.fillText(APPVER, W/2 + titleW/2 + 10, y2+2);
   ctx.textAlign='center';
   ctx.font='600 '+Math.round(clamp(W*0.042,14,20))+'px ui-rounded, system-ui, sans-serif';
   ctx.fillText('Orders roll in. Tap the crate that matches.', W/2, H*0.445);
