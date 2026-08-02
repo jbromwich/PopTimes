@@ -1443,7 +1443,7 @@ function drawHUD(){
   ctx.textBaseline='middle';
   ctx.font='700 '+Math.round(clamp(H*0.019,12,16))+'px ui-rounded, system-ui, sans-serif';
   ctx.fillStyle=DIM; ctx.textAlign='left';
-  ctx.fillText(inPractice() ? 'Practice' : 'Level '+(G.level+1), 12, L.beltTop*0.5);
+  ctx.fillText(inPractice() ? 'Practice' : 'Level '+(G.level+1)+' of '+LADDER_LEN[G.pref], 12, L.beltTop*0.5);
   // question progress, centred across the top row
   ctx.font='700 '+Math.round(clamp(H*0.017,11,15))+'px ui-rounded, system-ui, sans-serif';
   ctx.fillStyle='rgba(238,244,248,0.5)'; ctx.textAlign='center';
