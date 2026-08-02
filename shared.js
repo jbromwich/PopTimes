@@ -507,9 +507,13 @@ const PG_CSS = `/* ---- progress overlay (styles ported from the quiz) ---- */
 .pg-sec{padding-top:22px}
 .pg-sec + .pg-sec{margin-top:22px;border-top:1px solid var(--line)}
 .pg-sec h2{font-size:11px;font-weight:400;color:var(--muted);letter-spacing:.09em;text-transform:uppercase;margin:0 0 14px}
-.pg-grid{display:grid;grid-template-columns:18px repeat(12,1fr);gap:3px}
+.pg-gridwrap{overflow-x:auto;touch-action:pan-x pan-y;-webkit-overflow-scrolling:touch}
+.pg-grid{display:grid;grid-template-columns:16px repeat(12,minmax(0,1fr));gap:3px;min-width:300px}
 .pg-grid .ax{display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums}
-.pg-grid .cell{aspect-ratio:1;border-radius:3px}
+.pg-grid .cell{aspect-ratio:1;border-radius:3px;min-width:0;overflow:hidden;display:flex;align-items:center;justify-content:center}
+.pg-grid .cell span{font-size:8.5px;font-weight:600;font-variant-numeric:tabular-nums;color:rgba(0,0,0,0.48);pointer-events:none}
+.pg-grid .cell.t1 span{color:rgba(255,255,255,0.6)}
+.pg-grid .cell.off span{color:var(--muted);opacity:0.55}
 .pg-grid .cell.off{border:1px dashed var(--line);background:transparent}
 .pg-grid .cell.band{box-shadow:0 0 0 1.5px rgba(108,176,67,0.6)}
 .pg-grid .ax.axdone{background:#6cb043;color:#15311e;border-radius:4px;font-weight:700}
@@ -688,6 +692,9 @@ function fmtDur(ms){
   return Math.floor(s/60)+':'+pad(s%60);
 }
 function buildGrid(){
+  // grid lives in a pan-able scroller so it can never be clipped, even
+  // on engines that size grid tracks generously (iOS Safari)
+  const wrap=el('div','pg-gridwrap');
   const g=el('div','pg-grid');
   const done={}; for(let t=1;t<=12;t++) done[t]=tableMastered(t);
   g.appendChild(el('div','ax'));
@@ -696,7 +703,8 @@ function buildGrid(){
     g.appendChild(el('div','ax'+(done[r]?' axdone':''), r));
     for(let c2=1;c2<=12;c2++){
       const t=tierOf(r,c2);
-      const cell2=el('div','cell'+(t?'':' off')+((t&&(done[r]||done[c2]))?' band':''));
+      const cell2=el('div','cell'+(t?' t'+t:' off')+((t&&(done[r]||done[c2]))?' band':''));
+      cell2.appendChild(el('span',null,r*c2));   // the product, subtly
       if(t){
         cell2.style.background=TIERCOL[t];
         const w=factWin(r,c2);
@@ -707,7 +715,8 @@ function buildGrid(){
       g.appendChild(cell2);
     }
   }
-  return g;
+  wrap.appendChild(g);
+  return wrap;
 }
 
 function showProgress(){
