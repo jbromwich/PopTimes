@@ -473,7 +473,7 @@ const PG_CSS = `/* ---- progress overlay (styles ported from the quiz) ---- */
   background:rgba(232,182,76,0.15);border:3px solid #e8b64c;
   display:flex;align-items:center;justify-content:center;
 }
-.pg-badge .med svg{width:30px;height:30px;fill:#e8b64c}
+.pg-badge .med svg{width:30px;height:30px;fill:#e8b64c;overflow:visible}
 .pg-badge .med .tn{
   position:absolute;bottom:-6px;right:-4px;background:#e8b64c;color:#1a1408;
   font-size:11px;font-weight:800;border-radius:999px;padding:1px 6px;
@@ -546,7 +546,7 @@ const PG_CSS = `/* ---- progress overlay (styles ported from the quiz) ---- */
   background:rgba(232,182,76,0.18);border:2.5px solid #e8b64c;
   display:flex;align-items:center;justify-content:center;
 }
-.mtoast .mmed svg{width:21px;height:21px;fill:#e8b64c}
+.mtoast .mmed svg{width:21px;height:21px;fill:#e8b64c;overflow:visible}
 .mtoast .mlbl{font-family:ui-rounded,'SF Pro Rounded',system-ui,sans-serif;font-size:15px;font-weight:700;color:#f4e9c9;white-space:nowrap}
 .mtoast .mmed i{
   position:absolute;width:5px;height:5px;border-radius:50%;background:#ffe9a8;opacity:0;
@@ -599,9 +599,9 @@ function tableMastered(t){
 
 /* ---------- badges ---------- */
 const GLYPHS = {
-  star:   '<path d="M12 3l2.5 5.4 5.9.6-4.4 4 1.2 5.8L12 15.9 6.8 18.8 8 13 3.6 9l5.9-.6z"/>',
-  bolt:   '<path d="M13 2L5 13h5l-2 9 9-12h-5z"/>',
-  flame:  '<path d="M12 2c1 4-3 5-3 9a4.5 4.5 0 009 0c0-2-1-3.5-2-5-.3 1.2-1 2-2 2.3C14.6 6.8 14 4 12 2z"/>',
+  star:  '<g transform="translate(12 12) scale(1.25) translate(-12 -10.9)"><path d="M12 3l2.5 5.4 5.9.6-4.4 4 1.2 5.8L12 15.9 6.8 18.8 8 13 3.6 9l5.9-.6z"/></g>',
+  bolt:  '<g transform="translate(12 12) scale(1.25) translate(-11 -12)"><path d="M13 2L5 13h5l-2 9 9-12h-5z"/></g>',
+  flame: '<g transform="translate(12 12) scale(1.5) translate(-12.75 -8.75)"><path d="M12 2c1 4-3 5-3 9a4.5 4.5 0 009 0c0-2-1-3.5-2-5-.3 1.2-1 2-2 2.3C14.6 6.8 14 4 12 2z"/></g>',
   cap:    '<path d="M12 4L2 9l10 5 8-4v5h2V9zM6 13v4c0 1.7 2.7 3 6 3s6-1.3 6-3v-4l-6 3z"/>',
   compass:'<path d="M12 2a10 10 0 100 20 10 10 0 000-20zm4 6l-2.5 5.5L8 16l2.5-5.5z"/>',
   trophy: '<path d="M6 3h12v2h3v3c0 2.5-2 4.5-4.5 4.9A6 6 0 0113 16.9V19h3v2H8v-2h3v-2.1a6 6 0 01-3.5-3.1C5 13.5 3 11.5 3 9V5h3zm-1 4v2c0 1.2.8 2.3 2 2.8V7zm14 0h-2v4.8c1.2-.5 2-1.6 2-2.8z"/>',
