@@ -68,17 +68,23 @@ body{
 #foot a{color:var(--muted)}
 #fb button.link{border:none;background:none;color:var(--muted);font-size:15px;text-decoration:underline;padding:8px}
 
-/* ---- mode picker ---- */
-.modes{display:flex;gap:8px;justify-content:center;margin-top:18px;flex-wrap:wrap}
-#fb .modes button{font-family:inherit;font-size:14px;padding:8px 12px;border:1px solid var(--line-strong);border-radius:999px;background:none;color:var(--muted);cursor:pointer;-webkit-tap-highlight-color:transparent}
-#fb .modes button span{display:block;font-size:11px;margin-top:2px}
-#fb .modes button.sel{color:var(--ink);border-color:var(--accent);border-width:2px;padding:7px 11px}
-#fb .modes .mbar{height:4px;border-radius:2px;background:var(--line);margin-top:6px;overflow:hidden;position:relative}
-#fb .modes .mbar i{display:block;height:100%;border-radius:2px;background:#e8b64c}
+/* ---- mode picker: rectangular cards, matching the Conveyor game ---- */
+.modes{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:20px}
+#fb .modes button{position:relative;font-family:inherit;padding:12px 6px 14px;border:1.5px solid var(--line-strong);border-radius:12px;background:none;color:var(--muted);cursor:pointer;text-align:center;-webkit-tap-highlight-color:transparent}
+#fb .modes button b{display:block;font-size:16px;font-weight:700}
+#fb .modes button .msub{display:block;font-size:11px;margin-top:2px;color:var(--muted)}
+#fb .modes button.sel{color:var(--ink);border:2.5px solid #e8b64c;background:rgba(232,182,76,0.12);padding:11px 5px 13px}
+#fb .modes .mbar{height:5px;border-radius:3px;background:var(--line);margin:9px 6px 0;overflow:hidden}
+#fb .modes .mbar i{display:block;height:100%;border-radius:3px;background:#e8b64c}
 #fb .modes .mbar i.done{background:#6cb043}
-#fb .modes .mchk{color:#6cb043;font-weight:700;margin-left:4px}
+#fb .modes .mchk{position:absolute;top:-8px;right:-8px;width:21px;height:21px;border-radius:50%;background:#6cb043;color:#15311e;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;border:2px solid var(--panel)}
 
-@media (prefers-reduced-motion: reduce){*{transition:none !important}}
+/* ---- green PLAY pill, matching the Conveyor game ---- */
+#fb button.play{background:#2f8f5b;color:#fff;border:none;border-radius:999px;font-size:24px;font-weight:800;letter-spacing:.5px;padding:16px 62px;box-shadow:0 0 0 3px rgba(127,224,143,.3);animation:playpulse 1.7s ease-in-out infinite}
+#fb button.play:active{background:#27774a}
+@keyframes playpulse{0%,100%{box-shadow:0 0 0 3px rgba(127,224,143,.28)}50%{box-shadow:0 0 0 4px rgba(127,224,143,.6)}}
+
+@media (prefers-reduced-motion: reduce){*{transition:none !important;animation:none !important}}
 </style>
 </head>
 <body>
@@ -370,11 +376,11 @@ function welcome(){
   track.style.display='none';qrow.style.display='';
   chrome(false,true);
   qrow.style.gridTemplateColumns='1fr';q.style.textAlign='center';
-  q.innerHTML='<span class="brand">Flash</span><span class="ver">1.15</span><div class="subtitle">a PopTimes quiz · times tables</div>';
+  q.innerHTML='<span class="brand">Flash</span><span class="ver">1.16</span><div class="subtitle">a PopTimes quiz · times tables</div>';
   qa.textContent='';qa.style.opacity='0';
   opts.innerHTML='';opts.style.opacity='1';
   fb.innerHTML='';fb.style.textAlign='center';
-  fb.appendChild(bigBtn((BESTS[mode]||0)>0?'Continue':'Start',startRun));
+  // skill cards first, then the PLAY button below \u2014 mirrors the Conveyor game
   var mrow=document.createElement('div');
   mrow.className='modes';
   Object.keys(MODES).forEach(function(k){
@@ -382,10 +388,12 @@ function welcome(){
     btn.className=k===mode?'sel':'';
     var done=(BESTS[k]||0)>=LADDER_LEN[k];
     var pc=Math.min(1,(BESTS[k]||0)/LADDER_LEN[k]);
-    btn.innerHTML=MODES[k].label+(done?'<span class="mchk">\u2713</span>':'')
-      +'<span>'+MODES[k].sub+'</span>'
+    btn.innerHTML=(done?'<span class="mchk">\u2713</span>':'')
+      +'<b>'+MODES[k].label+'</b>'
+      +'<span class="msub">'+MODES[k].sub+'</span>'
       +'<div class="mbar"><i class="'+(done?'done':'')+'" style="width:'+Math.round(pc*100)+'%"></i></div>';
     btn.addEventListener('click',function(){
+      audio();sTap();
       mode=k;
       try{localStorage.setItem('ml-mode',k);}catch(e){}
       welcome();
@@ -393,6 +401,10 @@ function welcome(){
     mrow.appendChild(btn);
   });
   fb.appendChild(mrow);
+  var play=bigBtn('PLAY',startRun);
+  play.className='play';
+  play.style.marginTop='20px';
+  fb.appendChild(play);
   var t=document.createElement('div');
   t.style.cssText='font-size:16px;color:var(--muted);line-height:1.6;margin-top:22px;';
   t.innerHTML='Tap the correct answer<br>before the time runs out.';
