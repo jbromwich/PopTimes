@@ -161,6 +161,7 @@ const G = {
   fx: [],               // floating effects
   splashes: [],
   beltScroll: 0,
+  menuBrk: 0,           // >0 while the title belt wipes for a new skill
   shake: 0,
   payT: 0,
   pref: (m=>['beginner','regular','expert'].includes(m)?m:'regular')(localStorage.getItem('ml-mode')),
@@ -317,6 +318,7 @@ function startGame(){
   // a cleared level stays cleared: play resumes at the next one
   G.level = BESTS[G.pref]||0;
   G.recent = [];
+  G.menuBrk = 0;          // don't resume a title-belt wipe on return
   startLevel();
   G.scene='play';
 }
@@ -515,7 +517,7 @@ function frame(ts){
 function update(dt){
   // the menu runs at a fixed calm tempo so the belt speed doesn't depend
   // on whatever level was played last (and its riders advance in step)
-  if (G.scene==='menu'){ G.pace = MENU_PACE; G.mode = 'multiplying'; updateMenu(dt); }
+  if (G.scene==='menu'){ G.pace = menuPace(); G.mode = 'multiplying'; updateMenu(dt); }
   // treads scroll at exactly the speed the order cards ride;
   // the line stops while a crate is being loaded (proof animation)
   if (G.scene!=='play' || G.phase==='aim')
@@ -940,7 +942,8 @@ function drawBroken(){
 /* ---------- conveyor ---------- */
 function drawBelt(){
   const y = L.beltY;
-  const brk = G.scene==='broken' ? ease(clamp(G.brkT*1.1,0,1)) : 0;
+  const brkT = brkAmount();       // real breakdown, or the menu's reload wipe
+  const brk = brkT ? ease(clamp(brkT*1.1,0,1)) : 0;
   if (brk>0){
     const split = W*0.42;
     ctx.fillStyle=BELT;
@@ -952,11 +955,11 @@ function drawBelt(){
     rrect(0, -10, L.edgeX-split, 20, 8); ctx.fill();
     ctx.restore();
     // sparks at the break
-    if (G.brkT<1.6){
-      ctx.fillStyle='rgba(255,'+ri(160,220)+',80,'+(0.9-G.brkT*0.5)+')';
+    if (brkT<1.6){
+      ctx.fillStyle='rgba(255,'+ri(160,220)+',80,'+(0.9-brkT*0.5)+')';
       for (let i=0;i<5;i++){
         ctx.beginPath();
-        ctx.arc(split+rnd(-6,10), y+rnd(-14,10)+G.brkT*30, rnd(1.5,3.5), 0, 7);
+        ctx.arc(split+rnd(-6,10), y+rnd(-14,10)+brkT*30, rnd(1.5,3.5), 0, 7);
         ctx.fill();
       }
     }
@@ -1014,9 +1017,10 @@ function drawOrder(o){
   if (o.bump){              // hit by the card in front: jolt
     tilt += Math.sin(o.bump*18) * 0.12 * o.bump;
   }
-  if (G.scene==='broken'){  // the belt gave out — cards tumble off
-    lift += G.brkT*G.brkT*520;
-    tilt += G.brkT*1.6*((o.a+o.b)%2 ? 1 : -1);
+  const bAmt = brkAmount();
+  if (bAmt){                // the belt gave out — cards tumble off
+    lift += bAmt*bAmt*520;
+    tilt += bAmt*1.6*((o.a+o.b)%2 ? 1 : -1);
   }
 
   ctx.save();
@@ -1482,20 +1486,48 @@ function drawHUD(){
 // (the payoff scene shows no banner text: the sail-away animation is
 // the moment, and the completion card that follows does the talking)
 
-// The title screen shows a live slice of the real belt: the riders use
-// the same p-space speed and spacing as gameplay, so the treads and the
-// cards move together instead of sliding against each other.
-const MENU_PACE = 0;              // calm, level-1 tempo
+/* The title screen shows a live slice of the real belt: riders use the
+   play loop's own speed and spacing, and their questions come from the
+   selected skill's next level via the real picker — so the belt previews
+   what you're about to play. Always drawn as "a × b" cards, since the
+   menu has no answer grid to make a factoring preview meaningful. */
+const MENU_PACE_CAP = 0.45;       // keeps the backdrop calm behind the UI
+const MBRK_FALL = 0.75, MBRK_HEAL = 1.15;   // reload: cards fall, belt heals
+function menuLevel(){ return Math.min(BESTS[G.pref]||0, LADDER_LEN[G.pref]-1); }
+function menuPace(){ return Math.min(MENU_PACE_CAP, clamp(0.05 + menuLevel()*0.05, 0, 0.7)); }
+// break amount shared by the real breakdown and the menu's reload wipe
+function brkAmount(){
+  if (G.scene==='broken') return G.brkT;
+  if (G.scene==='menu' && G.menuBrk){
+    const t = G.menuBrk;
+    if (t <= MBRK_FALL) return t;                       // swinging open
+    return Math.max(0, MBRK_FALL*(1-(t-MBRK_FALL)/(MBRK_HEAL-MBRK_FALL)));
+  }
+  return 0;
+}
 let menuOrders = null;
-function menuRiders(){
-  if (!menuOrders){
-    menuOrders = [];
-    for (let i=0;i<3;i++)
-      menuOrders.push({a:ri(2,9), b:ri(2,9), p:0.62-i*orderSpacing(), st:0, state:'ride'});
+function seedMenuRiders(startP){
+  const def = ladderRung(G.pref, BESTS[G.pref]||0);
+  const gap = orderSpacing(), recent = [];
+  menuOrders = [];
+  for (let i=0;i<3;i++){
+    const f = pickFact({pref:G.pref, tables:def.tables, recent}) || {a:ri(2,9), b:ri(2,9)};
+    recent.push(fkey(f.a,f.b)); if (recent.length>4) recent.shift();
+    menuOrders.push({a:f.a, b:f.b, p:startP-i*gap, st:0, state:'ride'});
   }
   return menuOrders;
 }
+function menuRiders(){ return menuOrders || seedMenuRiders(0.62); }
+function reloadMenuBelt(){ if (!G.menuBrk) G.menuBrk = 0.0001; }   // wipe, then re-seed
 function updateMenu(dt){
+  if (G.menuBrk){
+    const was = G.menuBrk;
+    G.menuBrk += dt;
+    // once the old cards have tumbled clear, deal the new level's questions
+    if (was < MBRK_FALL && G.menuBrk >= MBRK_FALL) seedMenuRiders(-0.24);
+    if (G.menuBrk >= MBRK_HEAL) G.menuBrk = 0;
+    if (G.menuBrk) return;                  // belt is out: nothing rides
+  }
   const riders = menuRiders();
   const spd = dt / orderTravelTime();       // identical to the play loop
   for (const o of riders) o.p += spd;
@@ -1504,7 +1536,10 @@ function updateMenu(dt){
       let minP = Infinity;
       for (const q of riders) if (q!==o) minP = Math.min(minP, q.p);
       o.p = minP - orderSpacing();
-      o.a = ri(2,9); o.b = ri(2,9);
+      const def = ladderRung(G.pref, BESTS[G.pref]||0);
+      const recent = riders.map(q=>fkey(q.a,q.b));
+      const f = pickFact({pref:G.pref, tables:def.tables, recent});
+      if (f){ o.a = f.a; o.b = f.b; }
     }
   }
 }
@@ -1604,9 +1639,13 @@ cvs.addEventListener('pointerdown', e=>{
   if (G.scene==='menu'){
     for (const mb of (G.modeBtns||[])){
       if (hit(mb)){
+        const changed = G.pref!==mb.pref;
         G.pref=mb.pref;
         try{ localStorage.setItem('ml-mode', G.pref); }catch(e){}
         sTap();
+        // clear the belt the way a breakdown does, then deal the new
+        // skill's questions at that level's tempo
+        if (changed) reloadMenuBelt();
         return;
       }
     }
