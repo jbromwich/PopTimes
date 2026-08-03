@@ -55,7 +55,7 @@ canvas{display:block;width:100vw;height:100vh;height:100dvh}
 <script src="shared.js?v=18"></script>
 <script>
 'use strict';
-const APPVER = '1.22';   // major = feature, minor = fix
+const APPVER = '1.23';   // major = feature, minor = fix
 /* ================================================================
    MULTIPLICATION LOADER — cargo-dock theme
    Orders ride a conveyor toward the sea. Tap the crate whose
@@ -513,6 +513,9 @@ function frame(ts){
 }
 
 function update(dt){
+  // the menu runs at a fixed calm tempo so the belt speed doesn't depend
+  // on whatever level was played last (and its riders advance in step)
+  if (G.scene==='menu'){ G.pace = MENU_PACE; G.mode = 'multiplying'; updateMenu(dt); }
   // treads scroll at exactly the speed the order cards ride;
   // the line stops while a crate is being loaded (proof animation)
   if (G.scene!=='play' || G.phase==='aim')
@@ -1479,15 +1482,34 @@ function drawHUD(){
 // (the payoff scene shows no banner text: the sail-away animation is
 // the moment, and the completion card that follows does the talking)
 
+// The title screen shows a live slice of the real belt: the riders use
+// the same p-space speed and spacing as gameplay, so the treads and the
+// cards move together instead of sliding against each other.
+const MENU_PACE = 0;              // calm, level-1 tempo
 let menuOrders = null;
-function drawMenu(){
-  // decorative riders
+function menuRiders(){
   if (!menuOrders){
-    menuOrders = [{a:4,b:6,p:0.15,st:0,state:'ride'},{a:3,b:7,p:0.55,st:0,state:'ride'}];
+    menuOrders = [];
+    for (let i=0;i<3;i++)
+      menuOrders.push({a:ri(2,9), b:ri(2,9), p:0.62-i*orderSpacing(), st:0, state:'ride'});
   }
-  for (const o of menuOrders){
-    o.p += 0.00045; if (o.p>1.04) { o.p=-0.15; o.a=ri(2,9); o.b=ri(2,9); }
+  return menuOrders;
+}
+function updateMenu(dt){
+  const riders = menuRiders();
+  const spd = dt / orderTravelTime();       // identical to the play loop
+  for (const o of riders) o.p += spd;
+  for (const o of riders){
+    if (o.p > 1.10){                        // recycle behind the last card
+      let minP = Infinity;
+      for (const q of riders) if (q!==o) minP = Math.min(minP, q.p);
+      o.p = minP - orderSpacing();
+      o.a = ri(2,9); o.b = ri(2,9);
+    }
   }
+}
+function drawMenu(){
+  menuRiders();
   G.orders = []; // ensure none linger
   const saveMode = G.mode; G.mode='multiplying';
   for (const o of menuOrders) drawOrder(o);
